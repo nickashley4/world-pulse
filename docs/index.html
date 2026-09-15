@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>World Pulse</title>
+  <meta name="description" content="A 3D globe of the past week's important and interesting events, from trusted sources.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://esm.sh/three@0.186.0",
+      "globe.gl": "https://esm.sh/globe.gl@2.46.2?deps=three@0.186.0",
+      "topojson-client": "https://esm.sh/topojson-client@3.1.0"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="globe"></div>
+
+  <header class="brand glass">
+    <div class="logo"><span class="pulse"></span>World Pulse</div>
+    <div class="meta" id="meta">Loading…</div>
+  </header>
+
+  <nav class="timeline glass" aria-label="Day filter">
+    <button id="play" class="play" aria-label="Play timeline" title="Play the week (space)">▶</button>
+    <div id="days" class="days"></div>
+  </nav>
+
+  <div class="rail">
+    <div class="cats glass" id="cats" aria-label="Categories"></div>
+    <div class="layers glass" id="layers" aria-label="Map layers"></div>
+  </div>
+
+  <aside id="panel" class="panel glass" aria-live="polite">
+    <button class="grip" id="grip" aria-label="Toggle panel"></button>
+    <div id="panel-body" class="panel-body"></div>
+  </aside>
+
+  <div id="loading" class="loading"><span class="pulse big"></span>Spinning up the planet…</div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
