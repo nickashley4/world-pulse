@@ -562,11 +562,13 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') { clearSearch(); e.target.blur(); render(); }
     return;
   }
+  // "?" is Shift + / on US keyboards; some keyboards/browsers report key "/" with shiftKey instead.
+  const isHelpKey = e.key === '?' || (e.shiftKey && (e.key === '/' || e.code === 'Slash'));
   if (!$('#keys').hidden) {
-    if (e.key === 'Escape' || e.key === '?') showKeys(false);
+    if (e.key === 'Escape' || isHelpKey) { e.preventDefault(); showKeys(false); }
     return;
   }
-  if (e.key === '?') { showKeys(true); return; }
+  if (isHelpKey) { e.preventDefault(); showKeys(true); return; }
   if (e.key === '/') { e.preventDefault(); $('#q').focus(); return; }
   const days = [...S.idx.days, 'week'];
   const i = days.indexOf(S.day);

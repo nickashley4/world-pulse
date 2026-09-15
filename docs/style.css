@@ -10,6 +10,8 @@
   --display: 'Space Grotesk', 'Inter', system-ui, sans-serif;
 }
 * { box-sizing: border-box; }
+/* Author display rules (e.g. .keys-modal { display: flex }) would otherwise override [hidden]. */
+[hidden] { display: none !important; }
 html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font: 14px/1.45 var(--font); }
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
 a { color: inherit; }
