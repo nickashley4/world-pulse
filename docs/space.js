@@ -167,11 +167,15 @@ export function createSpace(ctx) {
       ])
       .ringsData(launches.map((l) => ({ lat: l.lat, lng: l.lng, rgb: '199,125,255', a: 0.9, maxR: 4.5, speed: 2.2, period: 1700 })))
       .arcsData(launches.map((l) => {
-        // A stylised ascent arc: polar/sun-synchronous missions head south, everything else east.
+        // A stylised ascent: only the rising half of an arc (polar/sun-synchronous missions head south,
+        // everything else east), brightest at its peak like a rocket's tip, so it doesn't read as a landing.
         const polar = /SSO|PO|Polar|Sun-Synch/i.test(l.orbit);
         return {
           sLat: l.lat, sLng: l.lng, eLat: polar ? l.lat - 30 : l.lat * 0.6, eLng: polar ? l.lng - 10 : l.lng + 38,
           rgb: '199,125,255', alt: 0.3, label: launchLabel(l), onClick: () => focusLaunch(l),
+          colors: ['rgba(199,125,255,0.1)', 'rgba(199,125,255,1)', 'rgba(199,125,255,0)'],
+          // three-globe measures dash distance from the arc's end, so offset by half to keep the pad side.
+          dash: 0.5, gap: 2, initialGap: 0.5, animate: 0,
         };
       }))
       .labelsData([])

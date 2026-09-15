@@ -1,7 +1,7 @@
 import Globe from 'globe.gl';
 import * as THREE from 'three';
 import { feature } from 'topojson-client';
-import { createSpace } from './space.js?v=50b2767767';
+import { createSpace } from './space.js?v=013223bd01';
 
 const CATS = {
   conflict: { label: 'Conflict', color: '#ff4d5e' },
@@ -181,8 +181,9 @@ function initGlobe() {
     .ringColor((d) => (t) => `rgba(${d.rgb},${(1 - t) * d.a})`)
     .ringMaxRadius('maxR').ringPropagationSpeed('speed').ringRepeatPeriod('period').ringAltitude(0.004)
     .arcStartLat('sLat').arcStartLng('sLng').arcEndLat('eLat').arcEndLng('eLng')
-    .arcColor((d) => [`rgba(${d.rgb},0.05)`, `rgba(${d.rgb},0.95)`])
-    .arcStroke(0.9).arcDashLength(0.45).arcDashGap(0.25).arcDashInitialGap(() => Math.random()).arcDashAnimateTime(2600)
+    .arcColor((d) => d.colors ?? [`rgba(${d.rgb},0.05)`, `rgba(${d.rgb},0.95)`])
+    .arcStroke(0.9).arcDashLength((d) => d.dash ?? 0.45).arcDashGap((d) => d.gap ?? 0.25)
+    .arcDashInitialGap((d) => d.initialGap ?? Math.random()).arcDashAnimateTime((d) => d.animate ?? 2600)
     .arcAltitude((d) => d.alt ?? null).arcAltitudeAutoScale(0.45)
     .arcLabel((d) => d.label ?? `<div class="tt arc-tt" style="--c:${CATS[d.cat]?.color}">
       <span class="tag">${CATS[d.cat]?.label || ''}</span>
