@@ -1,0 +1,420 @@
+{
+ "polls": {
+  "basketball": "2026-04-07T07:00Z",
+  "football": "2026-09-13T07:00Z"
+ },
+ "states": {
+  "BYU Cougars": "UT",
+  "Houston Cougars": "TX",
+  "Alabama Crimson Tide": "AL",
+  "Duke Blue Devils": "NC",
+  "Arkansas Razorbacks": "AR",
+  "Iowa Hawkeyes": "IA",
+  "Florida Gators": "FL",
+  "Missouri Tigers": "MO",
+  "LSU Tigers": "LA",
+  "Iowa State Cyclones": "IA",
+  "Arizona Wildcats": "AZ",
+  "Georgia Bulldogs": "GA",
+  "Illinois Fighting Illini": "IL",
+  "Michigan State Spartans": "MI",
+  "Miami Hurricanes": "FL",
+  "Kansas Jayhawks": "KS",
+  "Indiana Hoosiers": "IN",
+  "Louisville Cardinals": "KY",
+  "Texas Tech Red Raiders": "TX",
+  "SMU Mustangs": "TX",
+  "Virginia Cavaliers": "VA",
+  "Tennessee Volunteers": "TN",
+  "Nebraska Cornhuskers": "NE",
+  "Ohio State Buckeyes": "OH",
+  "Michigan Wolverines": "MI",
+  "Gonzaga Bulldogs": "WA",
+  "USC Trojans": "CA",
+  "Oregon Ducks": "OR",
+  "Ole Miss Rebels": "MS",
+  "Notre Dame Fighting Irish": "IN",
+  "Texas Longhorns": "TX",
+  "Texas A&M Aggies": "TX",
+  "Oklahoma Sooners": "OK",
+  "Vanderbilt Commodores": "TN",
+  "Penn State Nittany Lions": "PA",
+  "Wisconsin Badgers": "WI",
+  "UConn Huskies": "CT",
+  "Purdue Boilermakers": "IN",
+  "Utah Utes": "UT",
+  "St. John's Red Storm": "NY"
+ },
+ "ranked": [
+  {
+   "dn": "Alabama Crimson Tide",
+   "location": "Alabama",
+   "name": "Crimson Tide",
+   "ranks": {
+    "basketball": 16,
+    "football": 10
+   },
+   "state": "AL"
+  },
+  {
+   "dn": "Arizona Wildcats",
+   "location": "Arizona",
+   "name": "Wildcats",
+   "ranks": {
+    "basketball": 3
+   },
+   "state": "AZ"
+  },
+  {
+   "dn": "Arkansas Razorbacks",
+   "location": "Arkansas",
+   "name": "Razorbacks",
+   "ranks": {
+    "basketball": 13
+   },
+   "state": "AR"
+  },
+  {
+   "dn": "BYU Cougars",
+   "location": "BYU",
+   "name": "Cougars",
+   "ranks": {
+    "football": 11
+   },
+   "state": "UT"
+  },
+  {
+   "dn": "Duke Blue Devils",
+   "location": "Duke",
+   "name": "Blue Devils",
+   "ranks": {
+    "basketball": 4
+   },
+   "state": "NC"
+  },
+  {
+   "dn": "Florida Gators",
+   "location": "Florida",
+   "name": "Gators",
+   "ranks": {
+    "basketball": 9
+   },
+   "state": "FL"
+  },
+  {
+   "dn": "Georgia Bulldogs",
+   "location": "Georgia",
+   "name": "Bulldogs",
+   "ranks": {
+    "football": 2
+   },
+   "state": "GA"
+  },
+  {
+   "dn": "Gonzaga Bulldogs",
+   "location": "Gonzaga",
+   "name": "Bulldogs",
+   "ranks": {
+    "basketball": 18
+   },
+   "state": "WA"
+  },
+  {
+   "dn": "Houston Cougars",
+   "location": "Houston",
+   "name": "Cougars",
+   "ranks": {
+    "basketball": 7,
+    "football": 22
+   },
+   "state": "TX"
+  },
+  {
+   "dn": "Illinois Fighting Illini",
+   "location": "Illinois",
+   "name": "Fighting Illini",
+   "ranks": {
+    "basketball": 5
+   },
+   "state": "IL"
+  },
+  {
+   "dn": "Indiana Hoosiers",
+   "location": "Indiana",
+   "name": "Hoosiers",
+   "ranks": {
+    "football": 4
+   },
+   "state": "IN"
+  },
+  {
+   "dn": "Iowa Hawkeyes",
+   "location": "Iowa",
+   "name": "Hawkeyes",
+   "ranks": {
+    "basketball": 15,
+    "football": 18
+   },
+   "state": "IA"
+  },
+  {
+   "dn": "Iowa State Cyclones",
+   "location": "Iowa State",
+   "name": "Cyclones",
+   "ranks": {
+    "basketball": 8
+   },
+   "state": "IA"
+  },
+  {
+   "dn": "Kansas Jayhawks",
+   "location": "Kansas",
+   "name": "Jayhawks",
+   "ranks": {
+    "basketball": 20
+   },
+   "state": "KS"
+  },
+  {
+   "dn": "LSU Tigers",
+   "location": "LSU",
+   "name": "Tigers",
+   "ranks": {
+    "football": 7
+   },
+   "state": "LA"
+  },
+  {
+   "dn": "Louisville Cardinals",
+   "location": "Louisville",
+   "name": "Cardinals",
+   "ranks": {
+    "basketball": 23,
+    "football": 23
+   },
+   "state": "KY"
+  },
+  {
+   "dn": "Miami Hurricanes",
+   "location": "Miami",
+   "name": "Hurricanes",
+   "ranks": {
+    "basketball": 24,
+    "football": 5
+   },
+   "state": "FL"
+  },
+  {
+   "dn": "Michigan State Spartans",
+   "location": "Michigan State",
+   "name": "Spartans",
+   "ranks": {
+    "basketball": 11
+   },
+   "state": "MI"
+  },
+  {
+   "dn": "Michigan Wolverines",
+   "location": "Michigan",
+   "name": "Wolverines",
+   "ranks": {
+    "basketball": 1,
+    "football": 19
+   },
+   "state": "MI"
+  },
+  {
+   "dn": "Missouri Tigers",
+   "location": "Missouri",
+   "name": "Tigers",
+   "ranks": {
+    "football": 20
+   },
+   "state": "MO"
+  },
+  {
+   "dn": "Nebraska Cornhuskers",
+   "location": "Nebraska",
+   "name": "Cornhuskers",
+   "ranks": {
+    "basketball": 14
+   },
+   "state": "NE"
+  },
+  {
+   "dn": "Notre Dame Fighting Irish",
+   "location": "Notre Dame",
+   "name": "Fighting Irish",
+   "ranks": {
+    "football": 3
+   },
+   "state": "IN"
+  },
+  {
+   "dn": "Ohio State Buckeyes",
+   "location": "Ohio State",
+   "name": "Buckeyes",
+   "ranks": {
+    "football": 6
+   },
+   "state": "OH"
+  },
+  {
+   "dn": "Oklahoma Sooners",
+   "location": "Oklahoma",
+   "name": "Sooners",
+   "ranks": {
+    "football": 24
+   },
+   "state": "OK"
+  },
+  {
+   "dn": "Ole Miss Rebels",
+   "location": "Ole Miss",
+   "name": "Rebels",
+   "ranks": {
+    "football": 8
+   },
+   "state": "MS"
+  },
+  {
+   "dn": "Oregon Ducks",
+   "location": "Oregon",
+   "name": "Ducks",
+   "ranks": {
+    "football": 21
+   },
+   "state": "OR"
+  },
+  {
+   "dn": "Penn State Nittany Lions",
+   "location": "Penn State",
+   "name": "Nittany Lions",
+   "ranks": {
+    "football": 14
+   },
+   "state": "PA"
+  },
+  {
+   "dn": "Purdue Boilermakers",
+   "location": "Purdue",
+   "name": "Boilermakers",
+   "ranks": {
+    "basketball": 6
+   },
+   "state": "IN"
+  },
+  {
+   "dn": "SMU Mustangs",
+   "location": "SMU",
+   "name": "Mustangs",
+   "ranks": {
+    "football": 16
+   },
+   "state": "TX"
+  },
+  {
+   "dn": "St. John's Red Storm",
+   "location": "St. John's",
+   "name": "Red Storm",
+   "ranks": {
+    "basketball": 10
+   },
+   "state": "NY"
+  },
+  {
+   "dn": "Tennessee Volunteers",
+   "location": "Tennessee",
+   "name": "Volunteers",
+   "ranks": {
+    "basketball": 12,
+    "football": 15
+   },
+   "state": "TN"
+  },
+  {
+   "dn": "Texas A&M Aggies",
+   "location": "Texas A&M",
+   "name": "Aggies",
+   "ranks": {
+    "football": 9
+   },
+   "state": "TX"
+  },
+  {
+   "dn": "Texas Longhorns",
+   "location": "Texas",
+   "name": "Longhorns",
+   "ranks": {
+    "basketball": 22,
+    "football": 1
+   },
+   "state": "TX"
+  },
+  {
+   "dn": "Texas Tech Red Raiders",
+   "location": "Texas Tech",
+   "name": "Red Raiders",
+   "ranks": {
+    "basketball": 21,
+    "football": 13
+   },
+   "state": "TX"
+  },
+  {
+   "dn": "UConn Huskies",
+   "location": "UConn",
+   "name": "Huskies",
+   "ranks": {
+    "basketball": 2
+   },
+   "state": "CT"
+  },
+  {
+   "dn": "USC Trojans",
+   "location": "USC",
+   "name": "Trojans",
+   "ranks": {
+    "football": 12
+   },
+   "state": "CA"
+  },
+  {
+   "dn": "Utah Utes",
+   "location": "Utah",
+   "name": "Utes",
+   "ranks": {
+    "football": 17
+   },
+   "state": "UT"
+  },
+  {
+   "dn": "Vanderbilt Commodores",
+   "location": "Vanderbilt",
+   "name": "Commodores",
+   "ranks": {
+    "basketball": 19
+   },
+   "state": "TN"
+  },
+  {
+   "dn": "Virginia Cavaliers",
+   "location": "Virginia",
+   "name": "Cavaliers",
+   "ranks": {
+    "basketball": 17,
+    "football": 25
+   },
+   "state": "VA"
+  },
+  {
+   "dn": "Wisconsin Badgers",
+   "location": "Wisconsin",
+   "name": "Badgers",
+   "ranks": {
+    "basketball": 25
+   },
+   "state": "WI"
+  }
+ ]
+}

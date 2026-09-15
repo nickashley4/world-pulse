@@ -148,13 +148,17 @@ const QUERY_OVERRIDE = {
   TCD: 'Chad N\'Djamena OR "Chad\'s"', GBR: '"United Kingdom" OR Britain', VAT: 'Vatican', HKG: '"Hong Kong"', UNK: 'Kosovo',
 };
 
-export function buildGazetteer() {
+const COLLEGE_STATIC = new Set(['Crimson Tide', 'Auburn', 'Razorbacks', 'UCLA', 'Stanford', 'UConn', 'Gators', 'Seminoles', 'Georgia Tech', 'Northwestern', 'Notre Dame', 'Hoosiers', 'Purdue', 'Hawkeyes', 'Iowa State', 'Jayhawks', 'Kansas State', 'LSU', 'Wolverines', 'Michigan State', 'Ole Miss', 'Mississippi State', 'Mizzou', 'Cornhuskers', 'Huskers', 'Rutgers', 'Tar Heels', 'Wake Forest', 'Buckeyes', 'Ohio State', 'Sooners', 'Oklahoma State', 'Penn State', 'Clemson', 'Gamecocks', 'Volunteers', 'Vanderbilt', 'Longhorns', 'Aggies', 'Texas A&M', 'Baylor', 'TCU', 'BYU', 'Virginia Tech', 'Mountaineers', 'Badgers', 'Washington State']);
+
+// extraAliases: [[alias, placeKey]] added with top priority (e.g. ranked college teams).
+export function buildGazetteer(extraAliases = []) {
   const places = {};
   const alias = new Map(); // alias → key (null = ignore)
   const add = (a, key) => { if (a && a.length >= 2 && !alias.has(a)) alias.set(a, key); };
   const queries = [];
 
   IGNORE.forEach((a) => alias.set(a, null));
+  extraAliases.forEach(([a, key]) => add(a, key));
   US_ALIASES.forEach((a) => add(a, 'c:USA'));
 
   // States first so "Georgia" etc. resolve to the state.
@@ -162,7 +166,8 @@ export function buildGazetteer() {
     const key = `s:${ab}`;
     places[key] = { n: name, t: 'state', ab, lat, lng, poly: `us${fips}`, outlets };
     if (ab !== 'WA') add(name, key); // bare "Washington" is ambiguous
-    al.forEach((a) => add(a, key));
+    // College programs are placed only when ranked (added dynamically from the AP Top 25).
+    al.filter((a) => !COLLEGE_STATIC.has(a)).forEach((a) => add(a, key));
     queries.push({ key, q: ab === 'DC' ? '"Washington, D.C."' : ab === 'WA' ? '"Washington state" OR Seattle' : `"${name}"` });
     // Second query on major cities + "governor" to deepen state coverage beyond one 100-item result page.
     const cities = al.filter((a) => !a.includes(',') && /^[A-Z][a-z]+( [A-Z][a-z]+)?$/.test(a)).slice(0, 3);
@@ -210,5 +215,5 @@ export function buildGazetteer() {
     outletStates.set(d, [...(outletStates.get(d) || []), ab]);
   }
 
-  return { places, geo, queries, outletStates };
+  return { places, geo, queries, outletStates, isAlias: (a) => alias.has(a), aliasList: () => [...alias.keys()] };
 }
