@@ -27,7 +27,6 @@ const SPACE_LAYERS = {
   aurora: { label: 'Aurora forecast', color: '#50ffaa' },
   night: { label: 'Day / night', color: '#7a8cff' },
 };
-const US_BADGE = { lat: 50.5, lng: -100, key: 'c:USA' };
 const IMG = 'https://cdn.jsdelivr.net/npm/three-globe@2.45.0/example/img/';
 const WORLD_TOPO = 'https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json';
 const US_TOPO = 'https://cdn.jsdelivr.net/npm/us-atlas@3.0.1/states-10m.json';
@@ -166,6 +165,12 @@ function initGlobe() {
     .polygonLabel(polyLabel)
     .onPolygonHover((f) => { S.hover = f; world.polygonAltitude(polyAlt); $('#globe').style.cursor = f?.key ? 'pointer' : ''; })
     .onPolygonClick((f) => f.key && select(f.key))
+    // Clicking open water (anything that isn't a country/state) returns to the overview.
+    .onGlobeClick(() => {
+      if (S.mode !== 'earth' || (!S.sel && !S.hits)) return;
+      if (S.hits) clearSearch();
+      overview();
+    })
     .pointLat('lat').pointLng('lng').pointColor('color').pointAltitude('alt').pointRadius('r')
     .pointsMerge(false).pointsTransitionDuration(500)
     .pointLabel((d) => d.label ?? polyLabel({ key: d.key }))
@@ -181,16 +186,9 @@ function initGlobe() {
     .labelLat('lat').labelLng('lng').labelText(() => '').labelSize(0).labelDotRadius('rad').labelColor('color')
     .labelAltitude(0.003).labelResolution(1).labelsTransitionDuration(0)
     .labelLabel((d) => `<div class="tt"><b>${esc(d.icon)} ${esc(d.title)}</b><span>${esc(d.kind)} · NASA EONET</span></div>`)
-    .htmlElementsData([US_BADGE])
+    .htmlElementsData([])
     .htmlAltitude((d) => d.alt ?? 0.02)
-    .htmlElement((d) => {
-      if (d.iss) return SP.issElement();
-      const el = document.createElement('button');
-      el.className = 'us-badge';
-      el.innerHTML = '🇺🇸 U.S. National <b id="us-count"></b>';
-      el.onclick = () => select('c:USA');
-      return el;
-    });
+    .htmlElement(() => SP.issElement());
 
   world.pointOfView({ lat: 28, lng: -35, altitude: 2.4 });
   const ctr = world.controls();
@@ -282,11 +280,12 @@ function render({ panel = true } = {}) {
   document.body.classList.toggle('space-mode', space);
   world.polygonCapColor(capColor).polygonStrokeColor(world.polygonStrokeColor()).polygonAltitude(polyAlt);
   if (space) SP.renderGlobe();
-  else world.pointsData(pins()).ringsData(rings()).arcsData(arcs()).labelsData(naturalEvents()).hexBinPointsData([]).pathsData([]).htmlElementsData([US_BADGE]);
+  else world.pointsData(pins()).ringsData(rings()).arcsData(arcs()).labelsData(naturalEvents()).hexBinPointsData([]).pathsData([]).htmlElementsData([]);
   material.uniforms.nightOn.value = S.layers.night ? 1 : 0;
   const us = S.stats.get('c:USA');
   const usEl = $('#us-count');
   if (usEl) usEl.textContent = us ? us.count : '';
+  $('#us-nav').classList.toggle('on', S.sel === 'c:USA');
   renderChrome();
   if (panel) { if (space && !S.hits) SP.renderPanel($('#panel-body')); else renderPanel(); }
   writeHash();
