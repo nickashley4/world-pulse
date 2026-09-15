@@ -28,15 +28,19 @@ const etDay = (ms) => dayFmt.format(new Date(ms));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const log = (...a) => console.log(`[${((Date.now() - NOW) / 1000).toFixed(1)}s]`, ...a);
 
+const fetchErrors = new Map(); // url → why its last fetch failed
 async function fetchText(url, tries = 3) {
+  let why = '';
   for (let i = 0; i < tries; i++) {
     try {
       const r = await fetch(url, { headers: { 'user-agent': UA, accept: 'application/rss+xml,application/xml,text/xml,*/*' }, signal: AbortSignal.timeout(20000) });
       if (r.ok) return await r.text();
+      why = `HTTP ${r.status}`;
       if (r.status === 429 || r.status >= 500) { await sleep(2000 * (i + 1)); continue; }
-      return null;
-    } catch { await sleep(1000 * (i + 1)); }
+      break;
+    } catch (e) { why = e.name === 'TimeoutError' ? 'timeout' : e.cause?.code || e.message; await sleep(1000 * (i + 1)); }
   }
+  fetchErrors.set(url, why);
   return null;
 }
 
@@ -96,7 +100,11 @@ function toItem(raw, job) {
 log(`Fetching ${jobs.length} feeds…`);
 await pool(jobs.map((job) => async () => {
   const xml = await fetchText(job.url);
-  if (!xml) { failed++; return; }
+  if (!xml) {
+    failed++;
+    log(`Feed failed (${fetchErrors.get(job.url)}): ${job.id || `Google News ${decodeURIComponent(job.url.match(/q=([^&]*)/)[1])}`}`);
+    return;
+  }
   for (const raw of parseFeed(xml)) {
     const it = toItem(raw, job);
     if (it) fresh.push(it);
