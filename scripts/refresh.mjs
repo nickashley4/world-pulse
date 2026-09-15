@@ -20,7 +20,7 @@ const STATE_MIN_SCORE = 1.5;
 const CAP = { nation: 6, state: 3, country: 3, space: 8 };
 const BONUS = { nation: 10, state: 7, country: 9, space: 6 };
 const CEILING = 12;
-const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36';
+const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36'; // keep current: ESPN's bot filter returns an empty 202 to stale Chrome versions
 const NOW = Date.now();
 
 const dayFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' });
@@ -34,7 +34,12 @@ async function fetchText(url, tries = 3) {
   for (let i = 0; i < tries; i++) {
     try {
       const r = await fetch(url, { headers: { 'user-agent': UA, accept: 'application/rss+xml,application/xml,text/xml,*/*' }, signal: AbortSignal.timeout(20000) });
-      if (r.ok) return await r.text();
+      if (r.ok) {
+        const text = await r.text();
+        if (text.trim()) return text;
+        why = `empty response, HTTP ${r.status}`;
+        break;
+      }
       why = `HTTP ${r.status}`;
       if (r.status === 429 || r.status >= 500) { await sleep(2000 * (i + 1)); continue; }
       break;
