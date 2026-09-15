@@ -1,7 +1,7 @@
 import Globe from 'globe.gl';
 import * as THREE from 'three';
 import { feature } from 'topojson-client';
-import { createSpace } from './space.js?v=76b57d560d';
+import { createSpace } from './space.js?v=50b2767767';
 
 const CATS = {
   conflict: { label: 'Conflict', color: '#ff4d5e' },
@@ -528,6 +528,7 @@ document.addEventListener('click', (e) => {
   if (!t) return;
   if (t.id === 'play') return togglePlay();
   if (t.id === 'keys-btn') return showKeys(true);
+  if (!S.idx) return; // data still loading
   if (t.dataset.layer === 'arcs') return toggleLinks();
   if (t.id === 'grip') return $('#panel').classList.toggle('collapsed');
   if (t.dataset.day) { if (S.play) togglePlay(); return setDay(t.dataset.day); }
@@ -570,6 +571,7 @@ document.addEventListener('keydown', (e) => {
   }
   if (isHelpKey) { e.preventDefault(); showKeys(true); return; }
   if (e.key === '/') { e.preventDefault(); $('#q').focus(); return; }
+  if (!S.idx) return; // data still loading
   const days = [...S.idx.days, 'week'];
   const i = days.indexOf(S.day);
   if (e.key === 'ArrowLeft' && i > 0) setDay(days[i - 1]);
