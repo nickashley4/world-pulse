@@ -179,10 +179,13 @@ function initGlobe() {
     .ringMaxRadius('maxR').ringPropagationSpeed('speed').ringRepeatPeriod('period').ringAltitude(0.004)
     .arcStartLat('sLat').arcStartLng('sLng').arcEndLat('eLat').arcEndLng('eLng')
     .arcColor((d) => [`rgba(${d.rgb},0.05)`, `rgba(${d.rgb},0.95)`])
-    .arcStroke(0.45).arcDashLength(0.45).arcDashGap(0.25).arcDashInitialGap(() => Math.random()).arcDashAnimateTime(2600)
+    .arcStroke(0.9).arcDashLength(0.45).arcDashGap(0.25).arcDashInitialGap(() => Math.random()).arcDashAnimateTime(2600)
     .arcAltitude((d) => d.alt ?? null).arcAltitudeAutoScale(0.45)
-    .arcLabel((d) => d.label ?? `<div class="tt"><b>${esc(d.from)} ↔ ${esc(d.to)}</b><span>${esc(d.title || '')}</span></div>`)
-    .onArcClick((d) => (d.onClick ? d.onClick() : select(d.a)))
+    .arcLabel((d) => d.label ?? `<div class="tt arc-tt" style="--c:${CATS[d.cat]?.color}">
+      <span class="tag">${CATS[d.cat]?.label || ''}</span>
+      <b>${esc(d.title || `${d.from} ↔ ${d.to}`)}</b>
+      <span>${esc(d.from)} ↔ ${esc(d.to)} · click to open</span></div>`)
+    .onArcClick((d) => (d.onClick ? d.onClick() : openStory(d.home, d.id)))
     .labelLat('lat').labelLng('lng').labelText(() => '').labelSize(0).labelDotRadius('rad').labelColor('color')
     .labelAltitude(0.003).labelResolution(1).labelsTransitionDuration(0)
     .labelLabel((d) => `<div class="tt"><b>${esc(d.icon)} ${esc(d.title)}</b><span>${esc(d.kind)} · NASA EONET</span></div>`)
@@ -260,10 +263,10 @@ function arcs() {
     .filter(([, , c, , id]) => S.cats.has(c) && (!S.hits || S.hitIds.has(id)));
   const seen = new Set();
   return all.sort((a, b) => b[3] - a[3]).filter(([a, b]) => { const k = [a, b].sort().join(); if (seen.has(k)) return false; seen.add(k); return true; })
-    .slice(0, 45).map(([a, b, c, sc, id]) => {
+    .slice(0, 45).map(([a, b, c, sc, id, title, home]) => {
       const pa = place(a), pb = place(b);
-      if (!pa || !pb) return null;
-      return { a, sLat: pa.lat, sLng: pa.lng, eLat: pb.lat, eLng: pb.lng, rgb: hexRgb(CATS[c].color), from: pa.n, to: pb.n, id };
+      if (pa?.lat == null || pb?.lat == null) return null;
+      return { a, sLat: pa.lat, sLng: pa.lng, eLat: pb.lat, eLng: pb.lng, rgb: hexRgb(CATS[c].color), cat: c, from: pa.n, to: pb.n, id, title, home: home || a };
     }).filter(Boolean);
 }
 
@@ -319,7 +322,7 @@ function card(s) {
     .filter((k) => k !== S.sel && place(k) && !(k === 'x:SPACE' && S.mode === 'space')).slice(0, 3);
   const srcs = s.src.map(([n, u]) => (u ? `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(n)}</a>` : `<span>${esc(n)}</span>`)).join('');
   const more = s.ns > s.src.length ? `<span class="more">+${s.ns - s.src.length} more</span>` : '';
-  return `<article class="story" style="--c:${c.color}">
+  return `<article class="story" data-story="${s.id}" style="--c:${c.color}">
     ${s.img ? `<img class="thumb" src="${esc(s.img)}" alt="" loading="lazy" onerror="this.remove()">` : ''}
     <div class="s-meta"><span class="tag">${c.label}${s.k === 'college' ? ' · College' : ''}</span><span>${timeLabel(s.ts)}</span>${s.sc >= 14 ? '<span class="major">Major</span>' : ''}</div>
     <a class="hl" href="${esc(s.u)}" target="_blank" rel="noopener">${esc(s.t)}</a>
@@ -429,6 +432,13 @@ async function renderPanel() {
     </div>
     ${k === 'c:USA' ? '<h3>National news</h3>' : ''}${storyList(mine)}${extra}`;
   body.scrollTop = 0;
+  // Opened from a story link: scroll to that story and flash it.
+  const focused = S.focus && body.querySelector(`[data-story="${S.focus}"]`);
+  S.focus = null;
+  if (focused) {
+    focused.scrollIntoView({ block: 'center' });
+    focused.classList.add('focus');
+  }
 }
 
 function naturalEventsSummary() {
@@ -463,6 +473,11 @@ function overview() {
   S.sel = null;
   world.pointOfView({ altitude: 2.4 }, 1000);
   render();
+}
+
+function openStory(key, id) {
+  S.focus = id;
+  select(key);
 }
 
 function setMode(mode) {
