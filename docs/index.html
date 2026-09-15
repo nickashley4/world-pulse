@@ -15,7 +15,9 @@
     "imports": {
       "three": "https://esm.sh/three@0.186.0",
       "globe.gl": "https://esm.sh/globe.gl@2.46.2?deps=three@0.186.0",
-      "topojson-client": "https://esm.sh/topojson-client@3.1.0"
+      "topojson-client": "https://esm.sh/topojson-client@3.1.0",
+      "satellite.js": "https://esm.sh/satellite.js@7.1.0",
+      "d3-geo": "https://esm.sh/d3-geo@3.1.1"
     }
   }
   </script>
@@ -27,6 +29,11 @@
     <div class="logo"><span class="pulse"></span>World Pulse</div>
     <div class="meta" id="meta">Loading…</div>
   </header>
+
+  <div class="modes glass" role="tablist" aria-label="View">
+    <button data-mode="earth" class="on" role="tab">🌍 Earth</button>
+    <button data-mode="space" role="tab">🚀 Space</button>
+  </div>
 
   <nav class="timeline glass" aria-label="Day filter">
     <button id="play" class="play" aria-label="Play timeline" title="Play the week (space)">▶</button>
