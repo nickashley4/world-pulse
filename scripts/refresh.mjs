@@ -339,7 +339,9 @@ for (const c of clusters) {
   }
   const geoPlaces = c.places.filter((k) => !k.startsWith('x:'));
   if (geoPlaces.length > 1 && c.sc >= 5 && arcs[c.d].length < 40) {
-    for (const k of geoPlaces.slice(1)) arcs[c.d].push([geoPlaces[0], k, c.c, c.sc, c.id]);
+    // [from, to, category, score, storyId, headline, place whose panel lists the story]
+    const home = assigned.find((p) => !p.startsWith('x:')) || geoPlaces[0];
+    for (const k of geoPlaces.slice(1)) arcs[c.d].push([geoPlaces[0], k, c.c, c.sc, c.id, c.t, home]);
   }
 }
 
