@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=013223bd01">
+  <link rel="stylesheet" href="style.css?v=1b630977eb">
   <script type="importmap">
   {
     "imports": {
@@ -41,6 +41,7 @@
 
   <div class="rail">
     <button id="us-nav" class="us-nav glass" data-place="c:USA" title="National U.S. news (states are on the map)">🇺🇸 U.S. National <b id="us-count"></b></button>
+    <button id="disc-nav" class="us-nav disc-nav glass" data-sp="disc" title="New planets, black holes and other deep-space discoveries (D)">🪐 Discoveries <b id="disc-count"></b></button>
     <div class="cats glass" id="cats" aria-label="Categories"></div>
     <div class="layers glass" id="layers" aria-label="Map layers"></div>
   </div>
@@ -59,6 +60,7 @@
         <div><dt><kbd>Space</kbd></dt><dd>Play / pause the timeline</dd></div>
         <div><dt><kbd>/</kbd></dt><dd>Search the past week</dd></div>
         <div><dt><kbd>L</kbd></dt><dd>Story links on / off</dd></div>
+        <div><dt><kbd>D</kbd></dt><dd>Discoveries: new planets, black holes and more (Space mode)</dd></div>
         <div><dt><kbd>Esc</kbd></dt><dd>Close a place, clear search, or leave Space mode</dd></div>
         <div><dt><kbd>?</kbd></dt><dd>Show this list</dd></div>
       </dl>
@@ -71,8 +73,20 @@
     </div>
   </div>
 
+  <div id="disc" class="disc-modal" role="dialog" aria-modal="true" aria-labelledby="disc-title" hidden>
+    <div class="disc-card glass">
+      <div class="disc-top">
+        <div><span class="eyebrow">Deep space · newly confirmed &amp; reported</span><h2 id="disc-title">Discoveries</h2></div>
+        <button class="close disc-close" data-sp="disc:close" aria-label="Close discoveries">✕ Close</button>
+      </div>
+      <div id="disc-tabs" class="disc-tabs" aria-label="Discovery types"></div>
+      <div id="disc-body" class="disc-body"></div>
+    </div>
+  </div>
+  <div id="disc-toast" class="disc-toast glass" role="status" hidden></div>
+
   <div id="loading" class="loading"><span class="pulse big"></span>Spinning up the planet…</div>
 
-  <script type="module" src="app.js?v=013223bd01"></script>
+  <script type="module" src="app.js?v=1b630977eb"></script>
 </body>
 </html>

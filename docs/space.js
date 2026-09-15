@@ -1,6 +1,7 @@
 // Space mode: live ISS orbit, launches, aurora forecast, APOD, asteroid flybys, the Sun, space news.
 import * as satellite from 'satellite.js';
 import { geoContains } from 'd3-geo';
+import { createDiscoveries } from './discoveries.js?v=1b630977eb';
 
 const ISS_ALT = 0.066; // ~420 km in globe radii
 const STATUS = {
@@ -41,8 +42,9 @@ function countdown(t) {
 export function createSpace(ctx) {
   const { world, S, esc, timeLabel, dayLabel, selDays, periodLabel, storyList, loadDay, polys, render } = ctx;
   let data = null, loading = null, satrec = null, aurora = [], kpNow = null;
-  let timer = null, pathTimer = null, follow = false, over = '—', tickN = 0, shownLaunches = [], issPaths = [];
+  let timer = null, pathTimer = null, follow = false, over = '—', tickN = 0, shownLaunches = [], shownUpcoming = [], issPaths = [];
   const iss = { lat: 0, lng: 0, alt: ISS_ALT, iss: true };
+  const disc = createDiscoveries({ S, esc, dayLabel, loadDay, storyList, getData: () => data });
 
   world
     .hexBinPointLat('lat').hexBinPointLng('lng').hexBinPointWeight('p').hexBinResolution(3).hexMargin(0.12).hexBinMerge(true)
@@ -113,8 +115,7 @@ export function createSpace(ctx) {
       set('iss-spd', `${fmt(p.speed)} km/h`);
       if (follow) world.pointOfView({ lat: p.lat, lng: p.lng, altitude: Math.max(1.4, world.pointOfView().altitude) }, 900);
     }
-    const cd = document.getElementById('countdown');
-    if (cd) cd.textContent = countdown(+cd.dataset.t);
+    for (const el of document.querySelectorAll('[data-cd]')) el.textContent = countdown(+el.dataset.cd);
   }
 
   async function enter() {
@@ -127,12 +128,15 @@ export function createSpace(ctx) {
     pathTimer = setInterval(buildPaths, 60000);
     tick();
     render();
+    disc.ready().then(() => { if (S.mode === 'space') disc.toast(); });
   }
 
   function exit() {
     clearInterval(timer);
     clearInterval(pathTimer);
     follow = false;
+    disc.close();
+    disc.hideToast();
   }
 
   function issElement() {
@@ -196,12 +200,38 @@ export function createSpace(ctx) {
     } else if (action.startsWith('launch:')) {
       const l = shownLaunches[+action.slice(7)];
       if (l?.lat != null) focusLaunch(l);
+    } else if (action.startsWith('up:')) {
+      const l = shownUpcoming[+action.slice(3)];
+      if (l?.lat != null) focusLaunch(l);
+    } else if (action.startsWith('go:')) {
+      document.getElementById(`sec-${action.slice(3)}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else if (action.startsWith('disc')) {
+      disc.handle(action);
     }
+  }
+
+  // Marks the jump link for the section you are currently reading.
+  function spyOn(body) {
+    const nav = body.querySelector('.sec-nav');
+    body.onscroll = null;
+    if (!nav) return;
+    const secs = [...nav.querySelectorAll('[data-sec]')].map((b) => ({ b, el: document.getElementById(`sec-${b.dataset.sec}`) })).filter((x) => x.el);
+    if (!secs.length) return;
+    let queued = false;
+    const spy = () => {
+      queued = false;
+      const top = body.getBoundingClientRect().top + 58; // just below the pinned nav
+      let cur = secs[0];
+      for (const s of secs) if (s.el.getBoundingClientRect().top <= top) cur = s;
+      for (const s of secs) s.b.classList.toggle('on', s === cur);
+    };
+    body.onscroll = () => { if (!queued) { queued = true; requestAnimationFrame(spy); } };
+    spy();
   }
 
   async function renderPanel(body) {
     const token = ++S.panelToken;
-    await load();
+    await Promise.all([load(), disc.ready()]);
     const days = selDays();
     const week = S.day === 'week';
     const stories = (await Promise.all(days.map(loadDay))).flat().filter((s) => s.p.includes('x:SPACE'))
@@ -241,19 +271,40 @@ export function createSpace(ctx) {
       </div>`;
 
     shownLaunches = (d.launches || []).filter((l) => daySet.has(l.day)).sort((x, y) => y.ts - x.ts);
-    const next = (d.upcoming || []).find((l) => l.ts > Date.now());
+    shownUpcoming = (d.upcoming || []).filter((l) => l.ts > Date.now());
+    const next = shownUpcoming[0];
+
+    // At a glance: what changes hour to hour. Every [data-cd] countdown is retimed by tick().
+    const tiles = `
+      <div class="now-tiles">
+        ${next ? `<button class="tile wide" data-sp="up:0" title="Show the launch pad on the globe">
+            <small>Next launch</small><b data-cd="${next.ts}">${countdown(next.ts)}</b>
+            <span>${esc(next.rocket)}</span></button>`
+          : '<div class="tile wide"><small>Next launch</small><b>—</b><span>Nothing scheduled</span></div>'}
+        <div class="tile"><small>In space</small><b>${d.crew?.count ?? '—'}</b><span>people</span></div>
+        <div class="tile"><small>Aurora Kp</small><b>${Number.isFinite(kpNow) ? kpNow.toFixed(1) : '—'}</b>
+          <span>${Number.isFinite(kpNow) ? kpText(kpNow) : 'unknown'}</span></div>
+      </div>`;
+
+    const upcomingRow = shownUpcoming.length ? `
+      <div class="up-head">Upcoming</div>
+      <div class="up-row">${shownUpcoming.map((l, i) => `
+        <button class="up-card" data-sp="up:${i}">
+          <span class="cd" data-cd="${l.ts}">${countdown(l.ts)}</span>
+          <b>${esc(l.rocket)}</b><small>${esc(l.name)}</small>
+          <small class="dim">${esc(l.provider)} · ${timeLabel(l.ts)}</small>
+        </button>`).join('')}</div>` : '';
+
     const launches = `
-      ${next ? `<div class="next-launch"><span class="eyebrow">Next launch</span><b>${esc(next.rocket)} · ${esc(next.name)}</b>
-        <div class="countdown" id="countdown" data-t="${next.ts}">${countdown(next.ts)}</div>
-        <small>${esc(next.provider)} · ${esc(next.location)} · ${timeLabel(next.ts)}</small></div>` : ''}
-      ${shownLaunches.length ? shownLaunches.map((l, i) => {
+      ${upcomingRow}
+      ${shownLaunches.length ? `<div class="up-head">${week ? 'Flown this week' : 'Flown this day'}</div>${shownLaunches.map((l, i) => {
         const [rgb, label] = statusOf(l.status);
         return `<button class="launch" data-sp="launch:${i}" style="--c:rgb(${rgb})">
           ${l.img ? `<img src="${esc(l.img)}" alt="" loading="lazy" onerror="this.remove()">` : ''}
           <span class="l-body"><span class="s-meta"><span class="tag">${label}</span><span>${timeLabel(l.ts)}</span></span>
           <b>${esc(l.rocket)} · ${esc(l.name)}</b><small>${esc(l.provider)} · ${esc(l.location || l.pad)}</small>
           ${l.desc ? `<p>${esc(l.desc)}</p>` : ''}</span></button>`;
-      }).join('') : '<div class="empty">No launches in this period.</div>'}`;
+      }).join('')}` : '<div class="empty">No launches in this period.</div>'}`;
 
     const neos = days.flatMap((x) => d.neos?.[x] || []).sort((p, q) => p.ld - q.ld).slice(0, 6);
     const neoHtml = neos.map((o) => `
@@ -275,20 +326,28 @@ export function createSpace(ctx) {
         <div class="sub">Max Kp ${kpMax.toFixed(1)} — ${kpText(kpMax)}${kpMax >= 5 ? ' · auroras reached lower latitudes' : ''}</div>
       </div>` : '';
 
+    const strip = disc.strip();
+    const nav = [[strip && 'disc', 'Discoveries'], ['iss', 'ISS'], ['launch', 'Launches'], ['news', 'News'], [(neoHtml || sun) && 'sky', 'Sky']]
+      .filter(([k]) => k).map(([k, label]) => `<button data-sp="go:${k}" data-sec="${k}">${label}</button>`).join('');
+
     body.innerHTML = `
       <div class="p-head space-head">
         <div class="p-top"><span class="eyebrow">🚀 Space · ${periodLabel()}</span><button class="close" data-mode="earth">🌍 Back to Earth</button></div>
         <h2>Above the Planet</h2>
-        <div class="sub">${moon.icon} ${moon.name}, ${Math.round(moon.illum * 100)}% lit${Number.isFinite(kpNow) ? ` · Kp ${kpNow.toFixed(1)} (${kpText(kpNow)})` : ''}</div>
+        <div class="sub">${moon.icon} ${moon.name}, ${Math.round(moon.illum * 100)}% lit</div>
       </div>
+      ${tiles}
+      <nav class="sec-nav" aria-label="Jump to section">${nav}</nav>
+      ${strip ? `<div id="sec-disc">${strip}</div>` : ''}
       ${apod}
-      <h3>ISS right now</h3>${issCard}
-      <h3>Launches</h3>${launches}
-      <h3>Space news & discoveries</h3>${storyList(stories.slice(0, week ? 40 : 15), week)}
-      ${neoHtml ? `<h3>Asteroid flybys</h3>${neoHtml}<div class="sub" style="font-size:11px;margin-top:6px">LD = lunar distances (1 LD ≈ 384,400 km)</div>` : ''}
-      ${sun ? `<h3>The Sun</h3>${sun}` : ''}
-      <div class="foot">Space data: NASA (APOD, NeoWs, news), ESA, NOAA Space Weather Prediction Center (flares, Kp, aurora forecast), The Space Devs Launch Library, live ISS orbit from its current TLE via wheretheiss.at. News from SpaceNews, NASASpaceflight, Spaceflight Now, Space.com, Universe Today and trusted outlets.</div>`;
+      <h3 id="sec-iss">ISS right now</h3>${issCard}
+      <h3 id="sec-launch">Launches</h3>${launches}
+      <h3 id="sec-news">Space news</h3>${storyList(stories.slice(0, week ? 40 : 15), week)}
+      ${neoHtml ? `<h3 id="sec-sky">Asteroid flybys</h3>${neoHtml}<div class="sub" style="font-size:11px;margin-top:6px">LD = lunar distances (1 LD ≈ 384,400 km)</div>` : ''}
+      ${sun ? `<h3${neoHtml ? '' : ' id="sec-sky"'}>The Sun</h3>${sun}` : ''}
+      <div class="foot">Space data: NASA (APOD, NeoWs, news), ESA, NOAA Space Weather Prediction Center (flares, Kp, aurora forecast), The Space Devs Launch Library, NASA Exoplanet Archive (Caltech/IPAC), live ISS orbit from its current TLE via wheretheiss.at. News from SpaceNews, NASASpaceflight, Spaceflight Now, Space.com, Universe Today and trusted outlets.</div>`;
     body.scrollTop = 0;
+    spyOn(body);
   }
 
   function teaser() {
@@ -302,5 +361,5 @@ export function createSpace(ctx) {
       <small>${latest ? esc(latest.title) : 'See what’s happening above the planet'}</small></span></button>`;
   }
 
-  return { load, enter, exit, renderGlobe, renderPanel, handle, issElement, teaser };
+  return { load, enter, exit, renderGlobe, renderPanel, handle, issElement, teaser, disc };
 }
