@@ -38,6 +38,7 @@ const S = {
   layers: { night: true, glow: true, arcs: true, quakes: true, events: true },
   cache: new Map(), stats: new Map(), hover: null,
   quakes: [], events: [], play: null, panelToken: 0,
+  q: '', hits: null, hitIds: null,
 };
 let world, polys, material;
 
@@ -56,20 +57,42 @@ function loadDay(d) {
 
 function computeStats() {
   S.stats.clear();
-  let maxTop = 1;
-  for (const d of selDays()) {
-    for (const [k, cats] of Object.entries(S.idx.stats[d] || {})) {
-      const st = S.stats.get(k) || { count: 0, top: 0, cat: null, hot: 0 };
-      for (const [c, [n, sc]] of Object.entries(cats)) {
-        if (!S.cats.has(c)) continue;
-        st.count += n;
-        if (sc > st.top) { st.top = sc; st.cat = c; }
-        if ((c === 'conflict' || c === 'disaster') && sc > st.hot) st.hot = sc;
+  const bump = (k, c, n, sc) => {
+    if (!S.cats.has(c)) return;
+    const st = S.stats.get(k) || { count: 0, top: 0, cat: null, hot: 0 };
+    st.count += n;
+    if (sc > st.top) { st.top = sc; st.cat = c; }
+    if ((c === 'conflict' || c === 'disaster') && sc > st.hot) st.hot = sc;
+    S.stats.set(k, st);
+  };
+  if (S.hits) {
+    // Search mode: the globe shows only where matching stories are, across the whole week.
+    for (const s of S.hits) for (const k of s.p) bump(k, s.c, 1, s.sc);
+  } else {
+    for (const d of selDays()) {
+      for (const [k, cats] of Object.entries(S.idx.stats[d] || {})) {
+        for (const [c, [n, sc]] of Object.entries(cats)) bump(k, c, n, sc);
       }
-      if (st.count) { S.stats.set(k, st); maxTop = Math.max(maxTop, st.top); }
     }
   }
-  S.maxTop = maxTop;
+  S.maxTop = Math.max(1, ...[...S.stats.values()].map((st) => st.top));
+}
+
+// Hide near-identical headlines (e.g. the same story on consecutive days in week view).
+const STOP = new Set('the a an and or of to in on for with at by from as is are was were be has have after over into amid about says say said new more than not but will its it this that who what how why'.split(' '));
+const toks = (t) => new Set(t.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 2 && !STOP.has(w)));
+function dedupe(list) {
+  const kept = [];
+  for (const s of list) {
+    const tk = toks(s.t);
+    const dup = kept.some((k) => {
+      let sh = 0;
+      for (const w of tk) if (k.tk.has(w)) sh++;
+      return sh >= 3 && sh / Math.min(tk.size, k.tk.size) >= 0.6;
+    });
+    if (!dup) kept.push({ s, tk });
+  }
+  return kept.map((k) => k.s);
 }
 
 // ---------- Sun / day-night shader ----------
@@ -223,7 +246,8 @@ function rings() {
 
 function arcs() {
   if (!S.layers.arcs) return [];
-  const all = selDays().flatMap((d) => S.idx.arcs[d] || []).filter(([, , c]) => S.cats.has(c));
+  const all = (S.hits ? S.idx.days : selDays()).flatMap((d) => S.idx.arcs[d] || [])
+    .filter(([, , c, , id]) => S.cats.has(c) && (!S.hits || S.hitIds.has(id)));
   const seen = new Set();
   return all.sort((a, b) => b[3] - a[3]).filter(([a, b]) => { const k = [a, b].sort().join(); if (seen.has(k)) return false; seen.add(k); return true; })
     .slice(0, 45).map(([a, b, c, sc, id]) => {
@@ -281,7 +305,7 @@ function card(s) {
   const more = s.ns > s.src.length ? `<span class="more">+${s.ns - s.src.length} more</span>` : '';
   return `<article class="story" style="--c:${c.color}">
     ${s.img ? `<img class="thumb" src="${esc(s.img)}" alt="" loading="lazy" onerror="this.remove()">` : ''}
-    <div class="s-meta"><span class="tag">${c.label}</span><span>${timeLabel(s.ts)}</span>${s.sc >= 14 ? '<span class="major">Major</span>' : ''}</div>
+    <div class="s-meta"><span class="tag">${c.label}${s.k === 'college' ? ' · College' : ''}</span><span>${timeLabel(s.ts)}</span>${s.sc >= 14 ? '<span class="major">Major</span>' : ''}</div>
     <a class="hl" href="${esc(s.u)}" target="_blank" rel="noopener">${esc(s.t)}</a>
     ${s.s ? `<p>${esc(s.s)}</p>` : ''}
     <div class="srcs">${srcs}${more}</div>
@@ -289,9 +313,10 @@ function card(s) {
   </article>`;
 }
 
-function storyList(stories) {
+function storyList(stories, group = S.day === 'week') {
+  stories = dedupe(stories);
   if (!stories.length) return '<div class="empty">No major stories from trusted outlets for this period and filter.</div>';
-  if (S.day !== 'week') return stories.map(card).join('');
+  if (!group) return stories.map(card).join('');
   let html = '', cur = null;
   for (const s of stories) {
     if (s.d !== cur) { cur = s.d; html += `<div class="day-head">${dayLabel(cur)}</div>`; }
@@ -300,9 +325,49 @@ function storyList(stories) {
   return html;
 }
 
+function searchView() {
+  const raw = $('#q').value.trim();
+  const hits = S.hits.filter((s) => S.cats.has(s.c));
+  const shown = dedupe(hits);
+  const places = Object.entries(S.idx.places).filter(([, p]) => p.n.toLowerCase().includes(S.q)).slice(0, 8);
+  return `
+    <div class="p-head">
+      <div class="p-top"><span class="eyebrow">Search · past 7 days</span><button class="close" data-action="clear-search" aria-label="Clear search">✕</button></div>
+      <h2>“${esc(raw)}”</h2>
+      <div class="sub">${shown.length} ${shown.length === 1 ? 'story' : 'stories'}</div>
+    </div>
+    ${places.length ? `<h3>Places</h3><div class="hotspots">${places.map(([k, p]) => `<button class="place-chip" data-place="${k}" style="--c:${CATS[S.stats.get(k)?.cat || 'general'].color}"><span class="dot"></span>${flag(k)} ${esc(p.n)}</button>`).join('')}</div>` : ''}
+    <h3>Stories</h3>${storyList(shown.slice(0, 60), true)}`;
+}
+
+async function runSearch() {
+  const q = $('#q').value.trim().toLowerCase();
+  S.q = q;
+  if (q.length < 2) { clearSearch(); return render(); }
+  const all = (await Promise.all(S.idx.days.map(loadDay))).flat();
+  if (S.q !== q) return;
+  const words = q.split(/\s+/);
+  S.hits = all.filter((s) => {
+    const names = [...s.p, ...(s.x || [])].map((k) => place(k)?.n || '').join(' ');
+    const hay = `${s.t} ${s.s} ${s.src.map((x) => x[0]).join(' ')} ${names} ${CATS[s.c]?.label || ''}${s.k === 'college' ? ' college' : ''}`.toLowerCase();
+    return words.every((w) => hay.includes(w));
+  }).sort((a, b) => (b.d > a.d ? 1 : b.d < a.d ? -1 : b.sc - a.sc));
+  S.hitIds = new Set(S.hits.map((s) => s.id));
+  document.body.classList.add('search-dim');
+  render();
+}
+
+function clearSearch() {
+  $('#q').value = '';
+  S.q = '';
+  S.hits = S.hitIds = null;
+  document.body.classList.remove('search-dim');
+}
+
 async function renderPanel() {
   const token = ++S.panelToken;
   const body = $('#panel-body');
+  if (S.hits) { body.innerHTML = searchView(); body.scrollTop = 0; return; }
   const stories = (await Promise.all(selDays().map(loadDay))).flat().filter((s) => S.cats.has(s.c));
   if (token !== S.panelToken) return;
   const byRecency = (a, b) => (b.d > a.d ? 1 : b.d < a.d ? -1 : b.sc - a.sc);
@@ -318,10 +383,10 @@ async function renderPanel() {
       <div class="sub">Click any country, state, or pin. ${S.idx.stories.toLocaleString()} stories this week from ${S.idx.outlets} trusted outlets.</div></div>
       <h3>Hotspots</h3>
       <div class="hotspots">${hot.map(([k, st]) => `<button class="place-chip" data-place="${k}" style="--c:${CATS[st.cat].color}"><span class="dot"></span>${flag(k)} ${esc(place(k).n)}</button>`).join('')}</div>
-      <h3>Top stories</h3>${storyList(S.day === 'week' ? top : top)}
+      <h3>Top stories</h3>${storyList(top, false)}
       ${quakes.length ? `<h3>Significant earthquakes</h3>${quakes.map((q) => `<a class="list-row" href="${esc(q.url)}" target="_blank" rel="noopener"><span class="mag">M${q.mag.toFixed(1)}</span><span>${esc(q.place)}<small>${timeLabel(q.time)} · USGS</small></span></a>`).join('')}` : ''}
       ${ev ? `<h3>Natural events</h3>${ev}` : ''}
-      <div class="foot">Sources: AP, Reuters, BBC, NPR, PBS, The Guardian, Al Jazeera, DW, France 24, UN News, ESPN, NASA, and vetted state outlets. Stories are clustered across outlets and ranked by how many trusted sources cover them. Live layers from USGS and NASA EONET.<br>Updated ${new Date(S.idx.generated).toLocaleString()}.</div>`;
+      <div class="foot">Sources: AP, Reuters, BBC, NPR, PBS, The Guardian, Al Jazeera, DW, France 24, UN News, ESPN, NASA, and vetted state outlets. Stories are clustered across outlets and ranked by how many trusted sources cover them. Live layers from USGS and NASA EONET. College sports limited to AP Top 25 football and men’s basketball (via ESPN).<br>Updated ${new Date(S.idx.generated).toLocaleString()}.</div>`;
     return;
   }
 
@@ -362,6 +427,7 @@ function naturalEventsSummary() {
 // ---------- Interaction ----------
 function select(key, { fly = true } = {}) {
   if (!place(key)) return;
+  if (S.hits) clearSearch();
   S.sel = key;
   world.controls().autoRotate = false;
   if (fly) {
@@ -413,10 +479,18 @@ document.addEventListener('click', (e) => {
   if (t.dataset.layer) { S.layers[t.dataset.layer] = !S.layers[t.dataset.layer]; return render({ panel: false }); }
   if (t.dataset.place) return select(t.dataset.place);
   if (t.dataset.action === 'overview') return overview();
+  if (t.dataset.action === 'clear-search') { clearSearch(); return render(); }
 });
 
+let searchTimer;
+$('#q').addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(runSearch, 180); });
+
 document.addEventListener('keydown', (e) => {
-  if (e.target.closest('input,textarea')) return;
+  if (e.target.closest?.('input,textarea')) {
+    if (e.key === 'Escape') { clearSearch(); e.target.blur(); render(); }
+    return;
+  }
+  if (e.key === '/') { e.preventDefault(); $('#q').focus(); return; }
   const days = [...S.idx.days, 'week'];
   const i = days.indexOf(S.day);
   if (e.key === 'ArrowLeft' && i > 0) setDay(days[i - 1]);

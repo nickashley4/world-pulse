@@ -69,5 +69,7 @@ const BLOCKED = [
   /\b(how to watch|where to watch|live stream|livestream|what time|tv channel|injury report|best bets|expert picks|picks against the spread|odds and|odds,|predictions? and|mock draft|power rankings|fantasy football|fantasy baseball|player props)\b/i,
   /\b(deals? of the|best .{0,30} to buy|things to do|week in review|letters to the editor|stock price|shares (rise|fall|jump|slide)|traffic alert|weather forecast)\b/i,
   /\b(ranked|ranking every|top \d+ )\b/i,
+  /\b(news, rumors|rumors, updates|preview and prediction|prediction and preview|how to bet|betting:|week \d+ picks|cfb picks|picks for week|game thread|depth chart)\b/i,
+  /\bpreview - \d{2}\/\d{2}\/\d{4}\b/i,
 ];
 export const isBlockedTitle = (t) => t.length < 18 || BLOCKED.some((r) => r.test(t));
