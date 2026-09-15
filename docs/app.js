@@ -27,6 +27,9 @@ const SPACE_LAYERS = {
   aurora: { label: 'Aurora forecast', color: '#50ffaa' },
   night: { label: 'Day / night', color: '#7a8cff' },
 };
+// Story links on/off is remembered per browser.
+const PREF_LINKS = 'wp.storyLinks';
+const linksPref = () => { try { return localStorage.getItem(PREF_LINKS) !== 'off'; } catch { return true; } };
 const IMG = 'https://cdn.jsdelivr.net/npm/three-globe@2.45.0/example/img/';
 const WORLD_TOPO = 'https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json';
 const US_TOPO = 'https://cdn.jsdelivr.net/npm/us-atlas@3.0.1/states-10m.json';
@@ -43,7 +46,7 @@ const hexRgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)).join
 const S = {
   idx: null, day: null, sel: null,
   cats: new Set(Object.keys(CATS)),
-  layers: { night: true, glow: true, arcs: true, quakes: true, events: true, iss: true, launches: true, aurora: true },
+  layers: { night: true, glow: true, arcs: linksPref(), quakes: true, events: true, iss: true, launches: true, aurora: true },
   mode: 'earth',
   cache: new Map(), stats: new Map(), hover: null,
   quakes: [], events: [], play: null, panelToken: 0,
@@ -314,6 +317,9 @@ function renderChrome() {
     <button class="chip toggle ${S.layers[k] ? '' : 'off'}" data-layer="${k}" style="--c:${l.color}"><span class="sw"></span>${l.label}</button>`).join('');
   $('#play').classList.toggle('on', !!S.play);
   $('#play').textContent = S.play ? '❚❚' : '▶';
+  $('#links').classList.toggle('on', S.layers.arcs);
+  $('#links').setAttribute('aria-pressed', String(S.layers.arcs));
+  $('#links span').textContent = S.layers.arcs ? 'Links on' : 'Links off';
 }
 
 function card(s) {
@@ -480,6 +486,12 @@ function openStory(key, id) {
   select(key);
 }
 
+function toggleLinks() {
+  S.layers.arcs = !S.layers.arcs;
+  try { localStorage.setItem(PREF_LINKS, S.layers.arcs ? 'on' : 'off'); } catch {}
+  render({ panel: false });
+}
+
 function setMode(mode) {
   if (S.mode === mode) return;
   S.mode = mode;
@@ -516,9 +528,10 @@ function togglePlay() {
 }
 
 document.addEventListener('click', (e) => {
-  const t = e.target.closest('[data-day],[data-cat],[data-layer],[data-place],[data-action],[data-mode],[data-sp],#play,#grip');
+  const t = e.target.closest('[data-day],[data-cat],[data-layer],[data-place],[data-action],[data-mode],[data-sp],#play,#links,#grip');
   if (!t) return;
   if (t.id === 'play') return togglePlay();
+  if (t.id === 'links' || t.dataset.layer === 'arcs') return toggleLinks();
   if (t.id === 'grip') return $('#panel').classList.toggle('collapsed');
   if (t.dataset.day) { if (S.play) togglePlay(); return setDay(t.dataset.day); }
   if (t.dataset.cat) {
@@ -551,6 +564,7 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === 'Escape' && S.mode === 'space') setMode('earth');
   else if (e.key === 'Escape' && S.sel) overview();
   else if (e.key === ' ') { e.preventDefault(); togglePlay(); }
+  else if (e.key.toLowerCase() === 'l' && S.mode === 'earth') toggleLinks();
 });
 
 function writeHash() {
