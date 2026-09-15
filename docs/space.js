@@ -57,7 +57,7 @@ export function createSpace(ctx) {
   const getJSON = (u) => fetch(u).then((r) => (r.ok ? r.json() : Promise.reject(new Error(u))));
   function load() {
     loading ||= Promise.allSettled([
-      getJSON('data/space.json').then((j) => { data = j; }),
+      getJSON(`data/space.json?v=${encodeURIComponent(S.idx.generated)}`).then((j) => { data = j; }),
       getJSON('https://api.wheretheiss.at/v1/satellites/25544/tles').then((t) => { satrec = satellite.twoline2satrec(t.line1, t.line2); }),
       getJSON('https://services.swpc.noaa.gov/json/ovation_aurora_latest.json').then((j) => {
         aurora = j.coordinates.filter((c) => c[2] >= 5).map(([lng, lat, p]) => ({ lat, lng: lng > 180 ? lng - 360 : lng, p }));

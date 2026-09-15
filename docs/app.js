@@ -1,7 +1,7 @@
 import Globe from 'globe.gl';
 import * as THREE from 'three';
 import { feature } from 'topojson-client';
-import { createSpace } from './space.js';
+import { createSpace } from './space.js?v=76b57d560d';
 
 const CATS = {
   conflict: { label: 'Conflict', color: '#ff4d5e' },
@@ -40,7 +40,7 @@ const $ = (s, el = document) => el.querySelector(s);
 const esc = (s = '') => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const dayFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' });
 const etDay = (ms) => dayFmt.format(new Date(ms));
-const getJSON = (u) => fetch(u).then((r) => { if (!r.ok) throw new Error(`${r.status} ${u}`); return r.json(); });
+const getJSON = (u, opts) => fetch(u, opts).then((r) => { if (!r.ok) throw new Error(`${r.status} ${u}`); return r.json(); });
 const hexRgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)).join(',');
 
 const S = {
@@ -63,7 +63,7 @@ const periodLabel = () => (S.day === 'week' ? 'Past 7 days' : S.day === S.idx.da
 const timeLabel = (ts) => new Date(ts).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 
 function loadDay(d) {
-  if (!S.cache.has(d)) S.cache.set(d, getJSON(`data/day-${d}.json`).then((j) => j.stories).catch(() => []));
+  if (!S.cache.has(d)) S.cache.set(d, getJSON(`data/day-${d}.json?v=${encodeURIComponent(S.idx.generated)}`).then((j) => j.stories).catch(() => []));
   return S.cache.get(d);
 }
 
@@ -626,7 +626,7 @@ async function loadLive() {
 
 // ---------- Boot ----------
 async function main() {
-  const [idx, wt, ut] = await Promise.all([getJSON('data/index.json'), getJSON(WORLD_TOPO), getJSON(US_TOPO)]);
+  const [idx, wt, ut] = await Promise.all([getJSON('data/index.json', { cache: 'no-cache' }), getJSON(WORLD_TOPO), getJSON(US_TOPO)]);
   S.idx = idx;
   S.day = idx.days.at(-1);
   const countries = feature(wt, wt.objects.countries).features
