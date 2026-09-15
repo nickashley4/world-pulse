@@ -316,11 +316,7 @@ function renderChrome() {
   $('#layers').innerHTML = '<h4>Layers</h4>' + Object.entries(S.mode === 'space' ? SPACE_LAYERS : LAYERS).map(([k, l]) => `
     <button class="chip toggle ${S.layers[k] ? '' : 'off'}" data-layer="${k}" style="--c:${l.color}"><span class="sw"></span>${l.label}</button>`).join('');
   $('#play').classList.toggle('on', !!S.play);
-  $('#play').textContent = S.play ? '❚❚' : '▶';
-  $('#links').classList.toggle('on', S.layers.arcs);
-  $('#links').setAttribute('aria-pressed', String(S.layers.arcs));
-  $('#links span').textContent = S.layers.arcs ? 'Links on' : 'Links off';
-}
+  $('#play').textContent = S.play ? '❚❚' : '▶';}
 
 function card(s) {
   const c = CATS[s.c] || CATS.general;
@@ -528,10 +524,11 @@ function togglePlay() {
 }
 
 document.addEventListener('click', (e) => {
-  const t = e.target.closest('[data-day],[data-cat],[data-layer],[data-place],[data-action],[data-mode],[data-sp],#play,#links,#grip');
+  const t = e.target.closest('[data-day],[data-cat],[data-layer],[data-place],[data-action],[data-mode],[data-sp],#play,#keys-btn,#grip');
   if (!t) return;
   if (t.id === 'play') return togglePlay();
-  if (t.id === 'links' || t.dataset.layer === 'arcs') return toggleLinks();
+  if (t.id === 'keys-btn') return showKeys(true);
+  if (t.dataset.layer === 'arcs') return toggleLinks();
   if (t.id === 'grip') return $('#panel').classList.toggle('collapsed');
   if (t.dataset.day) { if (S.play) togglePlay(); return setDay(t.dataset.day); }
   if (t.dataset.cat) {
@@ -548,6 +545,15 @@ document.addEventListener('click', (e) => {
   if (t.dataset.action === 'clear-search') { clearSearch(); return render(); }
 });
 
+function showKeys(open) {
+  $('#keys').hidden = !open;
+  if (open) $('#keys .keys-close').focus();
+  else $('#keys-btn').focus();
+}
+$('#keys').addEventListener('click', (e) => {
+  if (e.target.id === 'keys' || e.target.closest('.keys-close')) showKeys(false);
+});
+
 let searchTimer;
 $('#q').addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(runSearch, 180); });
 
@@ -556,6 +562,11 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') { clearSearch(); e.target.blur(); render(); }
     return;
   }
+  if (!$('#keys').hidden) {
+    if (e.key === 'Escape' || e.key === '?') showKeys(false);
+    return;
+  }
+  if (e.key === '?') { showKeys(true); return; }
   if (e.key === '/') { e.preventDefault(); $('#q').focus(); return; }
   const days = [...S.idx.days, 'week'];
   const i = days.indexOf(S.day);
