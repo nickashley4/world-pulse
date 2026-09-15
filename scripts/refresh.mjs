@@ -394,7 +394,7 @@ await fs.writeFile(path.join(OUT, 'index.json'), JSON.stringify({
 }));
 const space = await spacePromise;
 await fs.writeFile(path.join(OUT, 'space.json'), JSON.stringify(space));
-log(`Space: ${space.launches.length} launches, ${space.upcoming.length} upcoming, ${Object.keys(space.apod).length} APODs, ${Object.values(space.neos).flat().length} asteroid flybys, ${space.crew.count} people in space`);
+log(`Space: ${space.launches.length} launches, ${space.upcoming.length} upcoming, ${Object.keys(space.apod).length} APODs, ${Object.values(space.neos).flat().length} asteroid flybys, ${space.crew.count} people in space, ${space.planets.length} new exoplanets`);
 await college.save();
 log(`Merged ${merges} duplicate clusters; dropped ${droppedCollege} unranked/other-sport college clusters.`);
 log(`Wrote ${total} stories across ${days.length} days from ${outlets.size} outlets.`);

@@ -9,7 +9,7 @@ const STAMP = /\?v=[\w-]+/g;
 const read = (f) => fs.readFileSync(path.join(DOCS, f), 'utf8');
 
 const hash = createHash('sha256');
-for (const f of ['index.html', 'app.js', 'space.js', 'style.css']) hash.update(read(f).replace(STAMP, ''));
+for (const f of ['index.html', 'app.js', 'space.js', 'discoveries.js', 'style.css']) hash.update(read(f).replace(STAMP, ''));
 const v = hash.digest('hex').slice(0, 10);
 
 function rewrite(file, re) {
@@ -22,4 +22,5 @@ function rewrite(file, re) {
 }
 rewrite('index.html', /((?:href|src)="(?:style\.css|app\.js))(?:\?v=[\w-]+)?/g);
 rewrite('app.js', /(from '\.\/space\.js)(?:\?v=[\w-]+)?/g);
+rewrite('space.js', /(from '\.\/discoveries\.js)(?:\?v=[\w-]+)?/g);
 console.log(`asset version ${v}`);
