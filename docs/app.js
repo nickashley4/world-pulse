@@ -1,12 +1,14 @@
 import Globe from 'globe.gl';
 import * as THREE from 'three';
 import { feature } from 'topojson-client';
+import { createSpace } from './space.js';
 
 const CATS = {
   conflict: { label: 'Conflict', color: '#ff4d5e' },
-  politics: { label: 'Politics', color: '#9d8cff' },
+  politics: { label: 'Politics', color: '#6f8cff' },
   disaster: { label: 'Disasters', color: '#ff9a3d' },
-  science: { label: 'Science & Space', color: '#39d0ff' },
+  space: { label: 'Space', color: '#c77dff' },
+  science: { label: 'Science', color: '#39d0ff' },
   sports: { label: 'Sports', color: '#3ddc84' },
   business: { label: 'Business', color: '#ffd166' },
   culture: { label: 'Culture', color: '#ff6fb5' },
@@ -19,6 +21,13 @@ const LAYERS = {
   quakes: { label: 'Earthquakes', color: '#ffc850' },
   events: { label: 'Fires · storms · volcanoes', color: '#ff7a2f' },
 };
+const SPACE_LAYERS = {
+  iss: { label: 'ISS live orbit', color: '#e6d2ff' },
+  launches: { label: 'Launches', color: '#c77dff' },
+  aurora: { label: 'Aurora forecast', color: '#50ffaa' },
+  night: { label: 'Day / night', color: '#7a8cff' },
+};
+const US_BADGE = { lat: 50.5, lng: -100, key: 'c:USA' };
 const IMG = 'https://cdn.jsdelivr.net/npm/three-globe@2.45.0/example/img/';
 const WORLD_TOPO = 'https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json';
 const US_TOPO = 'https://cdn.jsdelivr.net/npm/us-atlas@3.0.1/states-10m.json';
@@ -35,12 +44,13 @@ const hexRgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)).join
 const S = {
   idx: null, day: null, sel: null,
   cats: new Set(Object.keys(CATS)),
-  layers: { night: true, glow: true, arcs: true, quakes: true, events: true },
+  layers: { night: true, glow: true, arcs: true, quakes: true, events: true, iss: true, launches: true, aurora: true },
+  mode: 'earth',
   cache: new Map(), stats: new Map(), hover: null,
   quakes: [], events: [], play: null, panelToken: 0,
   q: '', hits: null, hitIds: null,
 };
-let world, polys, material;
+let world, polys, material, SP;
 
 // ---------- Helpers ----------
 const selDays = () => (S.day === 'week' ? S.idx.days : [S.day]);
@@ -158,22 +168,23 @@ function initGlobe() {
     .onPolygonClick((f) => f.key && select(f.key))
     .pointLat('lat').pointLng('lng').pointColor('color').pointAltitude('alt').pointRadius('r')
     .pointsMerge(false).pointsTransitionDuration(500)
-    .pointLabel((d) => polyLabel({ key: d.key }))
-    .onPointClick((d) => select(d.key))
+    .pointLabel((d) => d.label ?? polyLabel({ key: d.key }))
+    .onPointClick((d) => (d.onClick ? d.onClick() : select(d.key)))
     .ringColor((d) => (t) => `rgba(${d.rgb},${(1 - t) * d.a})`)
     .ringMaxRadius('maxR').ringPropagationSpeed('speed').ringRepeatPeriod('period').ringAltitude(0.004)
     .arcStartLat('sLat').arcStartLng('sLng').arcEndLat('eLat').arcEndLng('eLng')
     .arcColor((d) => [`rgba(${d.rgb},0.05)`, `rgba(${d.rgb},0.95)`])
     .arcStroke(0.45).arcDashLength(0.45).arcDashGap(0.25).arcDashInitialGap(() => Math.random()).arcDashAnimateTime(2600)
-    .arcAltitudeAutoScale(0.45)
-    .arcLabel((d) => `<div class="tt"><b>${esc(d.from)} ↔ ${esc(d.to)}</b><span>${esc(d.title || '')}</span></div>`)
-    .onArcClick((d) => select(d.a))
+    .arcAltitude((d) => d.alt ?? null).arcAltitudeAutoScale(0.45)
+    .arcLabel((d) => d.label ?? `<div class="tt"><b>${esc(d.from)} ↔ ${esc(d.to)}</b><span>${esc(d.title || '')}</span></div>`)
+    .onArcClick((d) => (d.onClick ? d.onClick() : select(d.a)))
     .labelLat('lat').labelLng('lng').labelText(() => '').labelSize(0).labelDotRadius('rad').labelColor('color')
     .labelAltitude(0.003).labelResolution(1).labelsTransitionDuration(0)
     .labelLabel((d) => `<div class="tt"><b>${esc(d.icon)} ${esc(d.title)}</b><span>${esc(d.kind)} · NASA EONET</span></div>`)
-    .htmlElementsData([{ lat: 50.5, lng: -100, key: 'c:USA' }])
-    .htmlAltitude(0.02)
-    .htmlElement(() => {
+    .htmlElementsData([US_BADGE])
+    .htmlAltitude((d) => d.alt ?? 0.02)
+    .htmlElement((d) => {
+      if (d.iss) return SP.issElement();
       const el = document.createElement('button');
       el.className = 'us-badge';
       el.innerHTML = '🇺🇸 U.S. National <b id="us-count"></b>';
@@ -196,6 +207,7 @@ function initGlobe() {
 }
 
 function capColor(f) {
+  if (S.mode === 'space') return f === S.hover ? 'rgba(199,125,255,0.10)' : 'rgba(120,130,255,0.012)';
   const st = S.stats.get(f.key);
   if (f.key === S.sel) return 'rgba(90,169,255,0.45)';
   if (!st) return f === S.hover ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.015)';
@@ -217,7 +229,7 @@ function pins() {
   const out = [];
   for (const [k, st] of S.stats) {
     const p = place(k);
-    if (!p || k === 'c:USA') continue;
+    if (!p || p.lat == null || k === 'c:USA') continue;
     const norm = Math.sqrt(st.top / S.maxTop);
     out.push({
       key: k, lat: p.lat, lng: p.lng, color: CATS[st.cat].color,
@@ -230,7 +242,7 @@ function pins() {
 function rings() {
   const out = [];
   if (S.layers.glow) {
-    [...S.stats].filter(([k, st]) => st.hot >= 6 && place(k)).sort((a, b) => b[1].hot - a[1].hot).slice(0, 16)
+    [...S.stats].filter(([k, st]) => st.hot >= 6 && place(k)?.lat != null).sort((a, b) => b[1].hot - a[1].hot).slice(0, 16)
       .forEach(([k, st]) => {
         const p = place(k), n = st.hot / S.maxTop;
         out.push({ lat: p.lat, lng: p.lng, rgb: hexRgb(CATS[st.cat === 'disaster' ? 'disaster' : 'conflict'].color), a: 0.85, maxR: 2.5 + 5 * n, speed: 1.4, period: 1500 - 500 * n });
@@ -266,14 +278,17 @@ function naturalEvents() {
 // ---------- Render ----------
 function render({ panel = true } = {}) {
   computeStats();
+  const space = S.mode === 'space';
+  document.body.classList.toggle('space-mode', space);
   world.polygonCapColor(capColor).polygonStrokeColor(world.polygonStrokeColor()).polygonAltitude(polyAlt);
-  world.pointsData(pins()).ringsData(rings()).arcsData(arcs()).labelsData(naturalEvents());
+  if (space) SP.renderGlobe();
+  else world.pointsData(pins()).ringsData(rings()).arcsData(arcs()).labelsData(naturalEvents()).hexBinPointsData([]).pathsData([]).htmlElementsData([US_BADGE]);
   material.uniforms.nightOn.value = S.layers.night ? 1 : 0;
   const us = S.stats.get('c:USA');
   const usEl = $('#us-count');
   if (usEl) usEl.textContent = us ? us.count : '';
   renderChrome();
-  if (panel) renderPanel();
+  if (panel) { if (space && !S.hits) SP.renderPanel($('#panel-body')); else renderPanel(); }
   writeHash();
 }
 
@@ -292,7 +307,8 @@ function renderChrome() {
   $('#cats').innerHTML = '<h4>Categories</h4>' + Object.entries(CATS).map(([k, c]) => `
     <button class="chip ${S.cats.has(k) ? '' : 'off'}" data-cat="${k}" style="--c:${c.color}" title="Click to toggle · double-click to show only this">
       <span class="sw"></span>${c.label}<span class="n">${catCounts[k] || 0}</span></button>`).join('');
-  $('#layers').innerHTML = '<h4>Layers</h4>' + Object.entries(LAYERS).map(([k, l]) => `
+  document.querySelectorAll('.modes [data-mode]').forEach((b) => b.classList.toggle('on', b.dataset.mode === S.mode));
+  $('#layers').innerHTML = '<h4>Layers</h4>' + Object.entries(S.mode === 'space' ? SPACE_LAYERS : LAYERS).map(([k, l]) => `
     <button class="chip toggle ${S.layers[k] ? '' : 'off'}" data-layer="${k}" style="--c:${l.color}"><span class="sw"></span>${l.label}</button>`).join('');
   $('#play').classList.toggle('on', !!S.play);
   $('#play').textContent = S.play ? '❚❚' : '▶';
@@ -300,7 +316,8 @@ function renderChrome() {
 
 function card(s) {
   const c = CATS[s.c] || CATS.general;
-  const others = [...new Set([...(s.p || []), ...(s.x || [])])].filter((k) => k !== S.sel && place(k)).slice(0, 3);
+  const others = [...new Set([...(s.p || []), ...(s.x || [])])]
+    .filter((k) => k !== S.sel && place(k) && !(k === 'x:SPACE' && S.mode === 'space')).slice(0, 3);
   const srcs = s.src.map(([n, u]) => (u ? `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(n)}</a>` : `<span>${esc(n)}</span>`)).join('');
   const more = s.ns > s.src.length ? `<span class="more">+${s.ns - s.src.length} more</span>` : '';
   return `<article class="story" style="--c:${c.color}">
@@ -309,7 +326,7 @@ function card(s) {
     <a class="hl" href="${esc(s.u)}" target="_blank" rel="noopener">${esc(s.t)}</a>
     ${s.s ? `<p>${esc(s.s)}</p>` : ''}
     <div class="srcs">${srcs}${more}</div>
-    ${others.length ? `<div class="also">${others.map((k) => `<button data-place="${k}">${flag(k)} ${esc(place(k).n)}</button>`).join('')}</div>` : ''}
+    ${others.length ? `<div class="also">${others.map((k) => (k === 'x:SPACE' ? '<button data-mode="space">🚀 Space</button>' : `<button data-place="${k}">${flag(k)} ${esc(place(k).n)}</button>`)).join('')}</div>` : ''}
   </article>`;
 }
 
@@ -375,12 +392,13 @@ async function renderPanel() {
   if (!S.sel) {
     const topIds = new Set(selDays().flatMap((d) => S.idx.top[d] || []));
     const top = stories.filter((s) => topIds.has(s.id)).sort((a, b) => b.sc - a.sc).slice(0, S.day === 'week' ? 15 : 12);
-    const hot = [...S.stats].filter(([k]) => place(k)).sort((a, b) => b[1].top - a[1].top).slice(0, 12);
+    const hot = [...S.stats].filter(([k]) => place(k)?.lat != null).sort((a, b) => b[1].top - a[1].top).slice(0, 12);
     const quakes = S.quakes.filter((q) => selDays().includes(q.day) && q.mag >= 5.5).sort((a, b) => b.mag - a.mag).slice(0, 6);
     const ev = naturalEventsSummary();
     body.innerHTML = `
       <div class="p-head"><div class="eyebrow">${periodLabel()}</div><h2>${S.day === 'week' ? 'The week on Earth' : 'What’s happening'}</h2>
       <div class="sub">Click any country, state, or pin. ${S.idx.stories.toLocaleString()} stories this week from ${S.idx.outlets} trusted outlets.</div></div>
+      ${SP.teaser()}
       <h3>Hotspots</h3>
       <div class="hotspots">${hot.map(([k, st]) => `<button class="place-chip" data-place="${k}" style="--c:${CATS[st.cat].color}"><span class="dot"></span>${flag(k)} ${esc(place(k).n)}</button>`).join('')}</div>
       <h3>Top stories</h3>${storyList(top, false)}
@@ -427,7 +445,9 @@ function naturalEventsSummary() {
 // ---------- Interaction ----------
 function select(key, { fly = true } = {}) {
   if (!place(key)) return;
+  if (place(key).t === 'space') return setMode('space');
   if (S.hits) clearSearch();
+  if (S.mode === 'space') { S.mode = 'earth'; SP.exit(); }
   S.sel = key;
   world.controls().autoRotate = false;
   if (fly) {
@@ -444,6 +464,23 @@ function overview() {
   S.sel = null;
   world.pointOfView({ altitude: 2.4 }, 1000);
   render();
+}
+
+function setMode(mode) {
+  if (S.mode === mode) return;
+  S.mode = mode;
+  if (mode === 'space') {
+    S.sel = null;
+    world.controls().autoRotate = true;
+    world.pointOfView({ altitude: 3.1 }, 1200);
+    $('#panel').classList.remove('collapsed');
+    render();
+    SP.enter();
+  } else {
+    SP.exit();
+    world.pointOfView({ altitude: 2.4 }, 1000);
+    render();
+  }
 }
 
 function setDay(d) {
@@ -465,7 +502,7 @@ function togglePlay() {
 }
 
 document.addEventListener('click', (e) => {
-  const t = e.target.closest('[data-day],[data-cat],[data-layer],[data-place],[data-action],#play,#grip');
+  const t = e.target.closest('[data-day],[data-cat],[data-layer],[data-place],[data-action],[data-mode],[data-sp],#play,#grip');
   if (!t) return;
   if (t.id === 'play') return togglePlay();
   if (t.id === 'grip') return $('#panel').classList.toggle('collapsed');
@@ -477,6 +514,8 @@ document.addEventListener('click', (e) => {
     return render();
   }
   if (t.dataset.layer) { S.layers[t.dataset.layer] = !S.layers[t.dataset.layer]; return render({ panel: false }); }
+  if (t.dataset.mode) return setMode(t.dataset.mode);
+  if (t.dataset.sp) return SP.handle(t.dataset.sp);
   if (t.dataset.place) return select(t.dataset.place);
   if (t.dataset.action === 'overview') return overview();
   if (t.dataset.action === 'clear-search') { clearSearch(); return render(); }
@@ -495,6 +534,7 @@ document.addEventListener('keydown', (e) => {
   const i = days.indexOf(S.day);
   if (e.key === 'ArrowLeft' && i > 0) setDay(days[i - 1]);
   else if (e.key === 'ArrowRight' && i < days.length - 1) setDay(days[i + 1]);
+  else if (e.key === 'Escape' && S.mode === 'space') setMode('earth');
   else if (e.key === 'Escape' && S.sel) overview();
   else if (e.key === ' ') { e.preventDefault(); togglePlay(); }
 });
@@ -503,6 +543,7 @@ function writeHash() {
   const h = new URLSearchParams();
   if (S.day !== S.idx.days.at(-1)) h.set('day', S.day);
   if (S.sel) h.set('place', S.sel);
+  if (S.mode === 'space') h.set('mode', 'space');
   history.replaceState(null, '', h.toString() ? `#${h}` : location.pathname);
 }
 function readHash() {
@@ -510,6 +551,7 @@ function readHash() {
   const d = h.get('day');
   if (d && (d === 'week' || S.idx.days.includes(d))) S.day = d;
   const p = h.get('place');
+  if (h.get('mode') === 'space' && !p) return 'x:SPACE';
   return p && place(p) ? p : null;
 }
 
@@ -557,11 +599,13 @@ async function main() {
   $('#meta').textContent = `Updated ${gen.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, ${gen.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} · ${idx.stories.toLocaleString()} stories`;
 
   initGlobe();
+  SP = createSpace({ world, S, esc, timeLabel, dayLabel, selDays, periodLabel, storyList, loadDay, polys, render });
   const initial = readHash();
   if (innerWidth < 640) $('#panel').classList.add('collapsed');
   if (initial) select(initial); else render();
   setTimeout(() => $('#loading').classList.add('done'), 600);
   loadLive();
+  SP.load().then(() => { if (S.mode === 'earth' && !S.sel && !S.hits) renderPanel(); });
 }
 
 main().catch((err) => {

@@ -4,7 +4,8 @@ import path from 'node:path';
 import { parseFeed } from './lib/rss.mjs';
 import { buildGazetteer, US_GENERIC } from './lib/gazetteer.mjs';
 import { FEEDS, TOPIC_QUERIES, trustOf, isBlockedTitle, host } from './lib/sources.mjs';
-import { classify, importance } from './lib/classify.mjs';
+import { classify, importance, SPACE_STRONG } from './lib/classify.mjs';
+import { loadSpace } from './lib/space.mjs';
 import { loadCollege, OTHER_SPORT_RX } from './lib/college.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
@@ -14,7 +15,11 @@ const NDAYS = 7;
 const MIN_SCORE = 2.5;
 const MERGE_COS = 0.3; // tf-idf cosine above which two same-day clusters about a shared place are one story
 const STATE_MIN_SCORE = 1.5;
-const CAP = { nation: 6, state: 3, country: 3 };
+// Soft caps: the recommended stories per place per day. A story past the cap still gets in when
+// its score clears BONUS for that place type (heavy trusted coverage), up to a CEILING safety net.
+const CAP = { nation: 6, state: 3, country: 3, space: 8 };
+const BONUS = { nation: 10, state: 7, country: 9, space: 6 };
+const CEILING = 12;
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36';
 const NOW = Date.now();
 
@@ -53,6 +58,7 @@ log(`College: ${college.ranked.length} ranked teams (AP Top 25 football + men's 
 const G = buildGazetteer(college.aliases);
 const days = Array.from({ length: NDAYS }, (_, i) => etDay(NOW - (NDAYS - 1 - i) * 864e5));
 const daySet = new Set(days);
+const spacePromise = loadSpace({ root: ROOT, fetchJSON, etDay, days });
 
 // ---------- 1. Collect ----------
 const jobs = [
@@ -104,7 +110,7 @@ try { prev = JSON.parse(await fs.readFile(RAW, 'utf8')); } catch {}
 const norm = (t) => t.toLowerCase().replace(/[^\p{L}\p{N} ]/gu, '').replace(/\s+/g, ' ').trim();
 const seen = new Map();
 for (const it of [...fresh, ...prev]) {
-  if (it.ts < NOW - 8 * 864e5) continue;
+  if (it.ts < NOW - 8 * 864e5 || isBlockedTitle(it.t)) continue; // re-filter saved items as rules evolve
   const k = `${norm(it.t)}|${it.d}`;
   const old = seen.get(k);
   if (!old) seen.set(k, it);
@@ -152,6 +158,8 @@ for (const it of items) {
   const day = etDay(it.ts);
   if (!daySet.has(day)) continue;
   it.keys = placesFor(it);
+  // Space stories often happen nowhere on Earth; they live in the Space section instead.
+  if (!it.keys.length && (it.hint === 'space' || SPACE_STRONG.test(it.t))) it.keys = ['x:SPACE'];
   if (it.keys.length) byDay.get(day).push(it);
 }
 
@@ -287,6 +295,12 @@ for (const [day, list] of byDay) {
     // State-only stories come from smaller outlets; allow a single vetted state outlet through.
     const stateOnly = places.every((k) => k.startsWith('s:'));
     if (score < (stateOnly ? STATE_MIN_SCORE : MIN_SCORE)) continue;
+    // Only stories that classify as space belong in the Space section.
+    if (cat === 'space') { if (!places.includes('x:SPACE')) places.push('x:SPACE'); }
+    else if (places.includes('x:SPACE')) {
+      places.splice(places.indexOf('x:SPACE'), 1);
+      if (!places.length) continue;
+    }
     const summary = c.items.find((x) => x.s && norm(x.s) !== norm(x.t))?.s || '';
     clusters.push({
       id: hash(day + rep.t), d: day, places, c: cat, t: rep.t, s: summary, u: rep.u,
@@ -299,7 +313,7 @@ for (const [day, list] of byDay) {
 }
 
 // ---------- 4. Cap per place/day and assemble ----------
-const typeOf = (k) => (k === 'c:USA' ? 'nation' : k.startsWith('s:') ? 'state' : 'country');
+const typeOf = (k) => (k === 'c:USA' ? 'nation' : k.startsWith('s:') ? 'state' : k.startsWith('x:') ? 'space' : 'country');
 const used = new Map();
 const out = new Map(days.map((d) => [d, []]));
 const stats = Object.fromEntries(days.map((d) => [d, {}]));
@@ -310,7 +324,8 @@ for (const c of clusters) {
   for (const k of c.places) {
     const uk = `${c.d}|${k}`;
     const n = used.get(uk) || 0;
-    if (n < CAP[typeOf(k)]) { used.set(uk, n + 1); assigned.push(k); }
+    const type = typeOf(k);
+    if (n < CAP[type] || (c.sc >= BONUS[type] && n < CEILING)) { used.set(uk, n + 1); assigned.push(k); }
   }
   if (!assigned.length) continue;
   const story = { ...c, p: assigned, x: c.places.filter((k) => !assigned.includes(k)) };
@@ -322,8 +337,9 @@ for (const c of clusters) {
     const cur = e[c.c] || [0, 0];
     e[c.c] = [cur[0] + 1, Math.max(cur[1], c.sc)];
   }
-  if (c.places.length > 1 && c.sc >= 5 && arcs[c.d].length < 40) {
-    for (const k of c.places.slice(1)) arcs[c.d].push([c.places[0], k, c.c, c.sc, c.id]);
+  const geoPlaces = c.places.filter((k) => !k.startsWith('x:'));
+  if (geoPlaces.length > 1 && c.sc >= 5 && arcs[c.d].length < 40) {
+    for (const k of geoPlaces.slice(1)) arcs[c.d].push([geoPlaces[0], k, c.c, c.sc, c.id]);
   }
 }
 
@@ -354,12 +370,16 @@ const places = {};
 for (const [k, p] of Object.entries(G.places)) {
   places[k] = { n: p.n, t: p.t, lat: +p.lat.toFixed(2), lng: +p.lng.toFixed(2), ...(p.f && { f: p.f }), ...(p.ab && { ab: p.ab }) };
 }
+places['x:SPACE'] = { n: 'Space', t: 'space' };
 const poly = {};
 for (const [k, p] of Object.entries(G.places)) if (p.poly) poly[p.poly] = k;
 await fs.writeFile(path.join(OUT, 'index.json'), JSON.stringify({
   generated: new Date(NOW).toISOString(), days, stories: total, outlets: outlets.size, places, poly, stats, arcs, top,
   polls: college.polls,
 }));
+const space = await spacePromise;
+await fs.writeFile(path.join(OUT, 'space.json'), JSON.stringify(space));
+log(`Space: ${space.launches.length} launches, ${space.upcoming.length} upcoming, ${Object.keys(space.apod).length} APODs, ${Object.values(space.neos).flat().length} asteroid flybys, ${space.crew.count} people in space`);
 await college.save();
 log(`Merged ${merges} duplicate clusters; dropped ${droppedCollege} unranked/other-sport college clusters.`);
 log(`Wrote ${total} stories across ${days.length} days from ${outlets.size} outlets.`);

@@ -20,8 +20,13 @@ export const FEEDS = [
   { id: 'pbs', url: 'https://www.pbs.org/newshour/feeds/rss/headlines', name: 'PBS News', domain: 'pbs.org', us: true },
   { id: 'cbc-world', url: 'https://www.cbc.ca/webfeed/rss/rss-world', name: 'CBC News', domain: 'cbc.ca' },
   { id: 'espn', url: 'https://www.espn.com/espn/rss/news', name: 'ESPN', domain: 'espn.com', hint: 'sports' },
-  { id: 'nasa', url: 'https://www.nasa.gov/news-release/feed/', name: 'NASA', domain: 'nasa.gov', hint: 'science', us: true },
-  { id: 'space', url: 'https://www.space.com/feeds/all', name: 'Space.com', domain: 'space.com', hint: 'science' },
+  { id: 'nasa', url: 'https://www.nasa.gov/news-release/feed/', name: 'NASA', domain: 'nasa.gov', hint: 'space' },
+  { id: 'space', url: 'https://www.space.com/feeds/all', name: 'Space.com', domain: 'space.com', hint: 'space' },
+  { id: 'spacenews', url: 'https://spacenews.com/feed/', name: 'SpaceNews', domain: 'spacenews.com', hint: 'space' },
+  { id: 'nsf', url: 'https://www.nasaspaceflight.com/feed/', name: 'NASASpaceflight', domain: 'nasaspaceflight.com', hint: 'space' },
+  { id: 'sfn', url: 'https://spaceflightnow.com/feed/', name: 'Spaceflight Now', domain: 'spaceflightnow.com', hint: 'space' },
+  { id: 'esa', url: 'https://www.esa.int/rssfeed/Our_Activities/Space_Science', name: 'ESA', domain: 'esa.int', hint: 'space' },
+  { id: 'universetoday', url: 'https://www.universetoday.com/rss.xml', name: 'Universe Today', domain: 'universetoday.com', hint: 'space' },
 ];
 
 // Topic searches that surface "big" or "cool" stories anywhere in the world.
@@ -30,6 +35,10 @@ export const TOPIC_QUERIES = [
   'earthquake', 'hurricane OR typhoon OR cyclone', 'wildfire', 'volcano', 'flooding',
   '"scientists" discover', '"rocket launch"', 'NASA', 'archaeologists', 'festival', 'UNESCO', 'museum',
   '"World Cup"', 'Olympics', '"Grand Prix"', 'championship', '"Premier League"',
+  // Space: agencies, private companies (launch + Earth/space observation), and discoveries.
+  'SpaceX', '"Blue Origin"', '"Rocket Lab"', 'Starship', 'Artemis NASA', '"James Webb" telescope', 'Hubble', '"Vera Rubin Observatory"',
+  'exoplanet', 'astronomers', '"space station"', 'ISRO', 'JAXA', '"Planet Labs"', '"Firefly Aerospace"', '"Intuitive Machines"',
+  '"solar flare" OR aurora', '"Mars rover"', 'asteroid', 'ESA spacecraft', '"black hole"',
 ];
 
 const T1 = ['apnews.com', 'reuters.com', 'bbc.com', 'bbc.co.uk', 'npr.org', 'pbs.org', 'nytimes.com', 'washingtonpost.com', 'wsj.com', 'bloomberg.com', 'ft.com', 'economist.com', 'theguardian.com', 'aljazeera.com', 'dw.com', 'france24.com', 'news.un.org', 'afp.com', 'nasa.gov'];
@@ -38,7 +47,7 @@ const T2 = ['cnn.com', 'abcnews.go.com', 'abcnews.com', 'cbsnews.com', 'nbcnews.
   'cbc.ca', 'abc.net.au', 'scmp.com', 'japantimes.co.jp', 'thehindu.com', 'indianexpress.com', 'hindustantimes.com', 'timesofindia.indiatimes.com', 'dawn.com', 'straitstimes.com', 'channelnewsasia.com', 'koreaherald.com', 'koreatimes.co.kr', 'yna.co.kr', 'asia.nikkei.com',
   'kyivindependent.com', 'timesofisrael.com', 'haaretz.com', 'euronews.com', 'rferl.org', 'voanews.com', 'rfi.fr', 'lemonde.fr', 'spiegel.de', 'independent.co.uk', 'telegraph.co.uk', 'thetimes.com', 'news.sky.com', 'irishtimes.com', 'rte.ie',
   'africanews.com', 'theeastafrican.co.ke', 'nation.africa', 'premiumtimesng.com', 'news24.com', 'dailymaverick.co.za', 'mercopress.com', 'batimes.com.ar', 'mexiconewsdaily.com', 'smh.com.au', 'nzherald.co.nz', 'rnz.co.nz', 'globalnews.ca', 'ctvnews.ca', 'theglobeandmail.com',
-  'space.com', 'science.org', 'nature.com', 'scientificamerican.com', 'newscientist.com', 'nationalgeographic.com', 'smithsonianmag.com', 'livescience.com', 'arstechnica.com', 'theverge.com',
+  'space.com', 'spacenews.com', 'nasaspaceflight.com', 'spaceflightnow.com', 'universetoday.com', 'esa.int', 'eso.org', 'noirlab.edu', 'stsci.edu', 'planetary.org', 'skyandtelescope.org', 'earthsky.org', 'spacepolicyonline.com', 'phys.org', 'spacex.com', 'blueorigin.com', 'rocketlabcorp.com', 'rocketlabusa.com', 'isro.gov.in', 'jaxa.jp', 'planet.com', 'science.org', 'nature.com', 'scientificamerican.com', 'newscientist.com', 'nationalgeographic.com', 'smithsonianmag.com', 'livescience.com', 'arstechnica.com', 'theverge.com',
   'variety.com', 'hollywoodreporter.com', 'billboard.com', 'rollingstone.com', 'weather.com', 'foxweather.com'];
 
 const BLOCK = new Set(['wnd.com', 'wsws.org']);
@@ -71,5 +80,7 @@ const BLOCKED = [
   /\b(ranked|ranking every|top \d+ )\b/i,
   /\b(news, rumors|rumors, updates|preview and prediction|prediction and preview|how to bet|betting:|week \d+ picks|cfb picks|picks for week|game thread|depth chart)\b/i,
   /\bpreview - \d{2}\/\d{2}\/\d{4}\b/i,
+  // Space-site filler: entertainment, shopping, history, and the APOD post (shown separately).
+  /\b(sci-fi|movies?|tv shows?|trailer|star wars|star trek|video games?|lego|binoculars|telescope deals|best telescopes?|gift guide|on this day in space|APOD|night sky this week|what's up|hair tips|season \d+|episode \d+)\b/i,
 ];
 export const isBlockedTitle = (t) => t.length < 18 || BLOCKED.some((r) => r.test(t));
