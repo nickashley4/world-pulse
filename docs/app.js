@@ -198,7 +198,7 @@ function pins() {
     const norm = Math.sqrt(st.top / S.maxTop);
     out.push({
       key: k, lat: p.lat, lng: p.lng, color: CATS[st.cat].color,
-      alt: 0.012 + 0.14 * norm, r: (p.t === 'state' ? 0.2 : 0.32) * (k === S.sel ? 1.7 : 1),
+      alt: 0.006 + 0.07 * norm, r: (p.t === 'state' ? 0.18 : 0.28) * (k === S.sel ? 1.7 : 1),
     });
   }
   return out;
