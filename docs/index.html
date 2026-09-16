@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=1b630977eb">
+  <link rel="stylesheet" href="style.css?v=526e025e31">
   <script type="importmap">
   {
     "imports": {
@@ -26,7 +26,7 @@
   <div id="globe"></div>
 
   <header class="brand glass">
-    <div class="logo"><span class="pulse"></span>World Pulse<button id="keys-btn" class="keys-btn" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)">?</button></div>
+    <div class="logo"><span class="pulse"></span>World Pulse<button id="settings-btn" class="keys-btn" aria-label="Settings" title="Settings">⚙</button><button id="keys-btn" class="keys-btn" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)">?</button></div>
     <div class="meta" id="meta">Loading…</div>
   </header>
 
@@ -73,6 +73,34 @@
     </div>
   </div>
 
+  <div id="settings" class="keys-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
+    <div class="keys-card settings-card glass">
+      <div class="keys-top"><h2 id="settings-title">Settings</h2><button class="close settings-close" aria-label="Close">✕</button></div>
+
+      <h3>Startup</h3>
+      <div class="settings-row">
+        <label>Default view</label>
+        <div class="seg" id="set-view"><button data-val="earth">🌍 Earth</button><button data-val="space">🚀 Space</button></div>
+      </div>
+      <div class="settings-row">
+        <label>Default period</label>
+        <div class="seg" id="set-period"><button data-val="today">Today</button><button data-val="week">Past week</button></div>
+      </div>
+      <label class="settings-check"><input type="checkbox" id="set-autorotate">Auto-rotate the globe when idle</label>
+
+      <h3>Categories shown by default</h3>
+      <div class="chip-grid" id="set-cats"></div>
+
+      <h3>Map layers shown by default</h3>
+      <div class="chip-grid" id="set-layers"></div>
+
+      <div class="settings-foot">
+        <button id="set-reset" class="linklike">Reset to defaults</button>
+        <span class="settings-note">Saved in this browser only</span>
+      </div>
+    </div>
+  </div>
+
   <div id="disc" class="disc-modal" role="dialog" aria-modal="true" aria-labelledby="disc-title" hidden>
     <div class="disc-card glass">
       <div class="disc-top">
@@ -87,6 +115,6 @@
 
   <div id="loading" class="loading"><span class="pulse big"></span>Spinning up the planet…</div>
 
-  <script type="module" src="app.js?v=1b630977eb"></script>
+  <script type="module" src="app.js?v=526e025e31"></script>
 </body>
 </html>
