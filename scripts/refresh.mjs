@@ -102,15 +102,28 @@ function toItem(raw, job) {
   };
 }
 
+// ESPN JSON news (`api` feeds), in the shape parseFeed returns. Video clips are dropped: they carry no story.
+async function fetchNews(url) {
+  const j = await fetchJSON(url);
+  const arts = j?.articles || j?.headlines;
+  if (!arts) return null;
+  return arts.filter((a) => a.type !== 'Media' && a.headline && a.links?.web?.href).map((a) => ({
+    title: a.headline, link: a.links.web.href, date: a.published || a.lastModified,
+    desc: a.description || '', img: a.images?.[0]?.url || null,
+  }));
+}
+
 log(`Fetching ${jobs.length} feeds…`);
 await pool(jobs.map((job) => async () => {
-  const xml = await fetchText(job.url);
-  if (!xml) {
+  let entries = null;
+  if (job.api) entries = await fetchNews(job.url);
+  else { const xml = await fetchText(job.url); if (xml) entries = parseFeed(xml); }
+  if (!entries) {
     failed++;
-    log(`Feed failed (${fetchErrors.get(job.url)}): ${job.id || `Google News ${decodeURIComponent(job.url.match(/q=([^&]*)/)[1])}`}`);
+    log(`Feed failed (${fetchErrors.get(job.url) || 'unreadable response'}):${job.id || `Google News ${decodeURIComponent(job.url.match(/q=([^&]*)/)[1])}`}`);
     return;
   }
-  for (const raw of parseFeed(xml)) {
+  for (const raw of entries) {
     const it = toItem(raw, job);
     if (it) fresh.push(it);
   }

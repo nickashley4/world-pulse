@@ -3,8 +3,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 const LEAGUES = [
-  { sport: 'football', site: 'football/college-football', core: 'football/leagues/college-football', feed: 'https://www.espn.com/espn/rss/ncf/news' },
-  { sport: 'basketball', site: 'basketball/mens-college-basketball', core: 'basketball/leagues/mens-college-basketball', feed: 'https://www.espn.com/espn/rss/ncb/news' },
+  { sport: 'football', site: 'football/college-football', core: 'football/leagues/college-football' },
+  { sport: 'basketball', site: 'basketball/mens-college-basketball', core: 'basketball/leagues/mens-college-basketball' },
 ];
 
 // Team locations that are common words/names, or places that mean something else in the news.
@@ -120,6 +120,7 @@ export async function loadCollege({ root, fetchJSON, isPlaceAlias, stateKeys, st
   return {
     aliases, queries, detect, save, polls,
     ranked: ranked.map((t) => ({ dn: t.dn, ranks: t.ranks, state: t.state })),
-    feeds: LEAGUES.map((L) => ({ id: `espn-${L.sport}`, url: L.feed, name: 'ESPN', domain: 'espn.com', hint: 'sports' })),
+    // News comes from the same API as the polls: ESPN's RSS feeds answer data-center IPs with an empty 202.
+    feeds: LEAGUES.map((L) => ({ id: `espn-${L.sport}`, url: `https://site.api.espn.com/apis/site/v2/sports/${L.site}/news?limit=50`, api: true, name: 'ESPN', domain: 'espn.com', hint: 'sports' })),
   };
 }
