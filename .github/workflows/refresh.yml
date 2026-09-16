@@ -3,7 +3,12 @@ name: Refresh data
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: '17 11,22 * * *' # 7:17a and 6:17p EDT (6:17a / 5:17p EST); off the hour to dodge Actions delays
+    # GitHub runs schedules best-effort: runs arrive hours late or get dropped.
+    # Primary slots are 11:17 and 22:17 UTC (7:17a / 6:17p EDT); the later
+    # slots are backups that skip themselves if a refresh already landed.
+    - cron: '17 11,22 * * *'
+    - cron: '47 12,23 * * *'
+    - cron: '17 14,1 * * *'
 
 permissions:
   contents: write
@@ -13,12 +18,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Skip if data is already fresh
+        id: fresh
+        if: github.event_name == 'schedule'
+        run: |
+          generated=$(jq -r .generated docs/data/index.json)
+          age=$(( $(date +%s) - $(date -d "$generated" +%s) ))
+          echo "Data generated $generated ($((age / 60)) min ago)"
+          if [ "$age" -lt $((6 * 3600)) ]; then echo "skip=true" >> "$GITHUB_OUTPUT"; fi
+      - if: steps.fresh.outputs.skip != 'true'
+        uses: actions/setup-node@v4
         with:
           node-version: 24
-      - run: npm ci
-      - run: npm run refresh
+      - if: steps.fresh.outputs.skip != 'true'
+        run: npm ci
+      - if: steps.fresh.outputs.skip != 'true'
+        run: npm run refresh
       - name: Commit data
+        if: steps.fresh.outputs.skip != 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898732+github-actions[bot]@users.noreply.github.com"
