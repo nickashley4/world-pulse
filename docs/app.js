@@ -1,7 +1,7 @@
 import Globe from 'globe.gl';
 import * as THREE from 'three';
 import { feature } from 'topojson-client';
-import { createSpace } from './space.js?v=1b630977eb';
+import { createSpace } from './space.js?v=526e025e31';
 
 const CATS = {
   conflict: { label: 'Conflict', color: '#ff4d5e' },
@@ -27,9 +27,15 @@ const SPACE_LAYERS = {
   aurora: { label: 'Aurora forecast', color: '#50ffaa' },
   night: { label: 'Day / night', color: '#7a8cff' },
 };
-// Story links on/off is remembered per browser.
-const PREF_LINKS = 'wp.storyLinks';
-const linksPref = () => { try { return localStorage.getItem(PREF_LINKS) !== 'off'; } catch { return true; } };
+// Settings are remembered per browser (no account/login — see Settings panel).
+const PREFS_KEY = 'wp.prefs';
+function loadPrefs() {
+  try {
+    const p = JSON.parse(localStorage.getItem(PREFS_KEY));
+    return p && typeof p === 'object' ? p : null;
+  } catch { return null; }
+}
+function savePrefs(p) { try { localStorage.setItem(PREFS_KEY, JSON.stringify(p)); } catch {} }
 const IMG = 'https://cdn.jsdelivr.net/npm/three-globe@2.45.0/example/img/';
 const WORLD_TOPO = 'https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json';
 const US_TOPO = 'https://cdn.jsdelivr.net/npm/us-atlas@3.0.1/states-10m.json';
@@ -43,16 +49,19 @@ const etDay = (ms) => dayFmt.format(new Date(ms));
 const getJSON = (u, opts) => fetch(u, opts).then((r) => { if (!r.ok) throw new Error(`${r.status} ${u}`); return r.json(); });
 const hexRgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)).join(',');
 
+const savedPrefs = loadPrefs();
+const DEFAULT_LAYERS = { night: true, glow: true, arcs: true, quakes: true, events: true, iss: true, launches: true, aurora: true };
 const S = {
   idx: null, day: null, sel: null,
-  cats: new Set(Object.keys(CATS)),
-  layers: { night: true, glow: true, arcs: linksPref(), quakes: true, events: true, iss: true, launches: true, aurora: true },
+  cats: new Set(savedPrefs?.cats?.filter((c) => CATS[c]).length ? savedPrefs.cats.filter((c) => CATS[c]) : Object.keys(CATS)),
+  layers: { ...DEFAULT_LAYERS, ...savedPrefs?.layers },
   mode: 'earth',
   cache: new Map(), stats: new Map(), hover: null,
   quakes: [], events: [], play: null, panelToken: 0,
   q: '', hits: null, hitIds: null,
 };
 let world, polys, material, SP;
+let autoRotateEnabled = savedPrefs?.autoRotate !== false;
 
 // ---------- Helpers ----------
 const selDays = () => (S.day === 'week' ? S.idx.days : [S.day]);
@@ -199,13 +208,13 @@ function initGlobe() {
 
   world.pointOfView({ lat: 28, lng: -35, altitude: 2.4 });
   const ctr = world.controls();
-  ctr.autoRotate = true;
+  ctr.autoRotate = autoRotateEnabled;
   ctr.autoRotateSpeed = 0.35;
   let idleTimer;
   $('#globe').addEventListener('pointerdown', () => {
     ctr.autoRotate = false;
     clearTimeout(idleTimer);
-    idleTimer = setTimeout(() => { if (!S.sel && !S.play) ctr.autoRotate = true; }, 30000);
+    idleTimer = setTimeout(() => { if (!S.sel && !S.play && autoRotateEnabled) ctr.autoRotate = true; }, 30000);
   });
   addEventListener('resize', () => world.width(innerWidth).height(innerHeight));
   setInterval(() => material.uniforms.sunDir.value.copy(toVec(...sunLatLng())), 60000);
@@ -485,7 +494,7 @@ function openStory(key, id) {
 
 function toggleLinks() {
   S.layers.arcs = !S.layers.arcs;
-  try { localStorage.setItem(PREF_LINKS, S.layers.arcs ? 'on' : 'off'); } catch {}
+  persistPrefs();
   render({ panel: false });
 }
 
@@ -525,10 +534,11 @@ function togglePlay() {
 }
 
 document.addEventListener('click', (e) => {
-  const t = e.target.closest('[data-day],[data-cat],[data-layer],[data-place],[data-action],[data-mode],[data-sp],#play,#keys-btn,#grip');
+  const t = e.target.closest('[data-day],[data-cat],[data-layer],[data-place],[data-action],[data-mode],[data-sp],#play,#keys-btn,#settings-btn,#grip');
   if (!t) return;
   if (t.id === 'play') return togglePlay();
   if (t.id === 'keys-btn') return showKeys(true);
+  if (t.id === 'settings-btn') return showSettings(true);
   if (!S.idx) return; // data still loading
   if (t.dataset.layer === 'arcs') return toggleLinks();
   if (t.id === 'grip') return $('#panel').classList.toggle('collapsed');
@@ -556,6 +566,65 @@ $('#keys').addEventListener('click', (e) => {
   if (e.target.id === 'keys' || e.target.closest('.keys-close')) showKeys(false);
 });
 
+// ---------- Settings ----------
+// Everything here writes to a single localStorage key; there's no account, so
+// "settings" just means "what this browser remembers for next time."
+function persistPrefs() {
+  savePrefs({ view: S.mode, period: S.day === 'week' ? 'week' : 'today', autoRotate: autoRotateEnabled, cats: [...S.cats], layers: { ...S.layers } });
+}
+function showSettings(open) {
+  if (open) renderSettings();
+  $('#settings').hidden = !open;
+  if (open) $('#settings .settings-close').focus();
+  else $('#settings-btn').focus();
+}
+function renderSettings() {
+  $('#set-view').querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.val === S.mode));
+  const isToday = S.day === S.idx.days.at(-1);
+  $('#set-period').querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.val === 'week' ? S.day === 'week' : isToday));
+  $('#set-autorotate').checked = autoRotateEnabled;
+  $('#set-cats').innerHTML = Object.entries(CATS).map(([k, c]) => `
+    <button class="chip ${S.cats.has(k) ? '' : 'off'}" data-set-cat="${k}" style="--c:${c.color}"><span class="sw"></span>${c.label}</button>`).join('');
+  $('#set-layers').innerHTML = Object.entries({ ...LAYERS, ...SPACE_LAYERS }).map(([k, l]) => `
+    <button class="chip toggle ${S.layers[k] ? '' : 'off'}" data-set-layer="${k}" style="--c:${l.color}"><span class="sw"></span>${l.label}</button>`).join('');
+}
+function resetSettings() {
+  if (S.play) togglePlay();
+  if (S.mode === 'space') setMode('earth');
+  S.cats = new Set(Object.keys(CATS));
+  S.layers = { ...DEFAULT_LAYERS };
+  autoRotateEnabled = true;
+  world.controls().autoRotate = true;
+  setDay(S.idx.days.at(-1));
+  try { localStorage.removeItem(PREFS_KEY); } catch {}
+  renderSettings();
+}
+$('#settings').addEventListener('click', (e) => {
+  if (e.target.id === 'settings' || e.target.closest('.settings-close')) return showSettings(false);
+  const viewBtn = e.target.closest('#set-view button');
+  if (viewBtn) { setMode(viewBtn.dataset.val); persistPrefs(); return renderSettings(); }
+  const perBtn = e.target.closest('#set-period button');
+  if (perBtn) { if (S.play) togglePlay(); setDay(perBtn.dataset.val === 'week' ? 'week' : S.idx.days.at(-1)); persistPrefs(); return renderSettings(); }
+  const catBtn = e.target.closest('[data-set-cat]');
+  if (catBtn) {
+    const k = catBtn.dataset.setCat;
+    if (S.cats.has(k)) S.cats.delete(k); else S.cats.add(k);
+    if (!S.cats.size) S.cats = new Set(Object.keys(CATS));
+    render(); persistPrefs(); return renderSettings();
+  }
+  const layerBtn = e.target.closest('[data-set-layer]');
+  if (layerBtn) {
+    S.layers[layerBtn.dataset.setLayer] = !S.layers[layerBtn.dataset.setLayer];
+    render({ panel: false }); persistPrefs(); return renderSettings();
+  }
+  if (e.target.id === 'set-reset') return resetSettings();
+});
+$('#set-autorotate').addEventListener('change', (e) => {
+  autoRotateEnabled = e.target.checked;
+  world.controls().autoRotate = autoRotateEnabled;
+  persistPrefs();
+});
+
 let searchTimer;
 $('#q').addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(runSearch, 180); });
 
@@ -566,6 +635,10 @@ document.addEventListener('keydown', (e) => {
   }
   // "?" is Shift + / on US keyboards; some keyboards/browsers report key "/" with shiftKey instead.
   const isHelpKey = e.key === '?' || (e.shiftKey && (e.key === '/' || e.code === 'Slash'));
+  if (!$('#settings').hidden) {
+    if (e.key === 'Escape') { e.preventDefault(); showSettings(false); }
+    return;
+  }
   if (!$('#keys').hidden) {
     if (e.key === 'Escape' || isHelpKey) { e.preventDefault(); showKeys(false); }
     return;
@@ -636,7 +709,7 @@ async function loadLive() {
 async function main() {
   const [idx, wt, ut] = await Promise.all([getJSON('data/index.json', { cache: 'no-cache' }), getJSON(WORLD_TOPO), getJSON(US_TOPO)]);
   S.idx = idx;
-  S.day = idx.days.at(-1);
+  S.day = savedPrefs?.period === 'week' ? 'week' : idx.days.at(-1);
   const countries = feature(wt, wt.objects.countries).features
     .filter((f) => f.id !== '840' && f.properties.name !== 'Antarctica')
     .map((f) => Object.assign(f, { key: idx.poly[f.id] }));
@@ -651,7 +724,9 @@ async function main() {
   SP = createSpace({ world, S, esc, timeLabel, dayLabel, selDays, periodLabel, storyList, loadDay, polys, render });
   const initial = readHash();
   if (innerWidth < 640) $('#panel').classList.add('collapsed');
-  if (initial) select(initial); else render();
+  if (initial) select(initial);
+  else if (savedPrefs?.view === 'space') setMode('space');
+  else render();
   setTimeout(() => $('#loading').classList.add('done'), 600);
   loadLive();
   SP.load().then(() => { if (S.mode === 'earth' && !S.sel && !S.hits) renderPanel(); });
