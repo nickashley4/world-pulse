@@ -19,7 +19,8 @@ export const FEEDS = [
   { id: 'un-news', url: 'https://news.un.org/feed/subscribe/en/news/all/rss.xml', name: 'UN News', domain: 'news.un.org' },
   { id: 'pbs', url: 'https://www.pbs.org/newshour/feeds/rss/headlines', name: 'PBS News', domain: 'pbs.org', us: true },
   { id: 'cbc-world', url: 'https://www.cbc.ca/webfeed/rss/rss-world', name: 'CBC News', domain: 'cbc.ca' },
-  { id: 'espn', url: 'https://www.espn.com/espn/rss/news', name: 'ESPN', domain: 'espn.com', hint: 'sports' },
+  // ESPN's RSS feeds answer data-center IPs with an empty 202, so `api` feeds read its JSON news instead.
+  { id: 'espn', url: 'https://now.core.api.espn.com/v1/sports/news?limit=50', api: true, name: 'ESPN', domain: 'espn.com', hint: 'sports' },
   { id: 'nasa', url: 'https://www.nasa.gov/news-release/feed/', name: 'NASA', domain: 'nasa.gov', hint: 'space' },
   { id: 'space', url: 'https://www.space.com/feeds/all', name: 'Space.com', domain: 'space.com', hint: 'space' },
   { id: 'spacenews', url: 'https://spacenews.com/feed/', name: 'SpaceNews', domain: 'spacenews.com', hint: 'space' },
