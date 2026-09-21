@@ -1,6 +1,6 @@
 {
  "polls": {
-  "football": "2026-09-13T07:00Z",
+  "football": "2026-09-20T07:00Z",
   "basketball": "2026-04-07T07:00Z"
  },
  "states": {
@@ -43,7 +43,8 @@
   "UConn Huskies": "CT",
   "Purdue Boilermakers": "IN",
   "Utah Utes": "UT",
-  "St. John's Red Storm": "NY"
+  "St. John's Red Storm": "NY",
+  "Mississippi State Bulldogs": "MS"
  },
  "ranked": [
   {
@@ -51,7 +52,7 @@
    "location": "Alabama",
    "name": "Crimson Tide",
    "ranks": {
-    "football": 10,
+    "football": 8,
     "basketball": 16
    },
    "state": "AL"
@@ -79,7 +80,7 @@
    "location": "BYU",
    "name": "Cougars",
    "ranks": {
-    "football": 11
+    "football": 9
    },
    "state": "UT"
   },
@@ -97,6 +98,7 @@
    "location": "Florida",
    "name": "Gators",
    "ranks": {
+    "football": 21,
     "basketball": 9
    },
    "state": "FL"
@@ -115,7 +117,7 @@
    "location": "Houston",
    "name": "Cougars",
    "ranks": {
-    "football": 22,
+    "football": 25,
     "basketball": 7
    },
    "state": "TX"
@@ -134,7 +136,7 @@
    "location": "Indiana",
    "name": "Hoosiers",
    "ranks": {
-    "football": 4
+    "football": 5
    },
    "state": "IN"
   },
@@ -143,7 +145,7 @@
    "location": "Iowa",
    "name": "Hawkeyes",
    "ranks": {
-    "football": 18,
+    "football": 17,
     "basketball": 15
    },
    "state": "IA"
@@ -171,7 +173,7 @@
    "location": "LSU",
    "name": "Tigers",
    "ranks": {
-    "football": 7
+    "football": 10
    },
    "state": "LA"
   },
@@ -180,7 +182,7 @@
    "location": "Louisville",
    "name": "Cardinals",
    "ranks": {
-    "football": 23,
+    "football": 16,
     "basketball": 23
    },
    "state": "KY"
@@ -190,7 +192,7 @@
    "location": "Miami",
    "name": "Hurricanes",
    "ranks": {
-    "football": 5,
+    "football": 6,
     "basketball": 24
    },
    "state": "FL"
@@ -209,17 +211,26 @@
    "location": "Michigan",
    "name": "Wolverines",
    "ranks": {
-    "football": 19,
+    "football": 18,
     "basketball": 1
    },
    "state": "MI"
+  },
+  {
+   "dn": "Mississippi State Bulldogs",
+   "location": "Mississippi State",
+   "name": "Bulldogs",
+   "ranks": {
+    "football": 24
+   },
+   "state": "MS"
   },
   {
    "dn": "Missouri Tigers",
    "location": "Missouri",
    "name": "Tigers",
    "ranks": {
-    "football": 20
+    "football": 19
    },
    "state": "MO"
   },
@@ -246,25 +257,16 @@
    "location": "Ohio State",
    "name": "Buckeyes",
    "ranks": {
-    "football": 6
+    "football": 7
    },
    "state": "OH"
-  },
-  {
-   "dn": "Oklahoma Sooners",
-   "location": "Oklahoma",
-   "name": "Sooners",
-   "ranks": {
-    "football": 24
-   },
-   "state": "OK"
   },
   {
    "dn": "Ole Miss Rebels",
    "location": "Ole Miss",
    "name": "Rebels",
    "ranks": {
-    "football": 8
+    "football": 4
    },
    "state": "MS"
   },
@@ -273,7 +275,7 @@
    "location": "Oregon",
    "name": "Ducks",
    "ranks": {
-    "football": 21
+    "football": 20
    },
    "state": "OR"
   },
@@ -282,7 +284,7 @@
    "location": "Penn State",
    "name": "Nittany Lions",
    "ranks": {
-    "football": 14
+    "football": 13
    },
    "state": "PA"
   },
@@ -300,7 +302,7 @@
    "location": "SMU",
    "name": "Mustangs",
    "ranks": {
-    "football": 16
+    "football": 22
    },
    "state": "TX"
   },
@@ -309,7 +311,7 @@
    "location": "Tennessee",
    "name": "Volunteers",
    "ranks": {
-    "football": 15,
+    "football": 14,
     "basketball": 12
    },
    "state": "TN"
@@ -319,7 +321,7 @@
    "location": "Texas A&M",
    "name": "Aggies",
    "ranks": {
-    "football": 9
+    "football": 23
    },
    "state": "TX"
   },
@@ -338,7 +340,7 @@
    "location": "Texas Tech",
    "name": "Red Raiders",
    "ranks": {
-    "football": 13,
+    "football": 11,
     "basketball": 21
    },
    "state": "TX"
@@ -366,7 +368,7 @@
    "location": "Utah",
    "name": "Utes",
    "ranks": {
-    "football": 17
+    "football": 15
    },
    "state": "UT"
   },
@@ -384,7 +386,6 @@
    "location": "Virginia",
    "name": "Cavaliers",
    "ranks": {
-    "football": 25,
     "basketball": 17
    },
    "state": "VA"
