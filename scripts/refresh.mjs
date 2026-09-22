@@ -4,7 +4,7 @@ import path from 'node:path';
 import { parseFeed } from './lib/rss.mjs';
 import { buildGazetteer, US_GENERIC } from './lib/gazetteer.mjs';
 import { FEEDS, TOPIC_QUERIES, trustOf, isBlockedTitle, host } from './lib/sources.mjs';
-import { classify, importance, SPACE_STRONG } from './lib/classify.mjs';
+import { classify, importance, SPACE_STRONG, SPORTS_FILLER } from './lib/classify.mjs';
 import { loadSpace } from './lib/space.mjs';
 import { loadCollege, OTHER_SPORT_RX } from './lib/college.mjs';
 
@@ -20,6 +20,8 @@ const STATE_MIN_SCORE = 1.5;
 const CAP = { nation: 6, state: 3, country: 3, space: 8 };
 const BONUS = { nation: 10, state: 7, country: 9, space: 6 };
 const CEILING = 12;
+// Sports get their own tighter cap so a busy game day doesn't bury a state's or country's news.
+const SPORTS_CAP = { nation: 2, state: 1, country: 1, space: 0 };
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36'; // keep current: ESPN's bot filter returns an empty 202 to stale Chrome versions
 const NOW = Date.now();
 
@@ -316,6 +318,7 @@ for (const [day, list] of byDay) {
     // College sports: only AP Top 25 football / men's basketball.
     if (isCollege && (!col.ranked || OTHER_SPORT_RX.test(titles.join(' ')))) { droppedCollege++; continue; }
     if (cat === 'conflict' || cat === 'disaster') score += 1;
+    if (cat === 'sports' && SPORTS_FILLER.test(rep.t)) score -= 2;
     const maxPc = Math.max(...c.pc.values());
     const places = [...c.pc.entries()].filter(([, v]) => v >= maxPc * 0.34).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k]) => k);
     // State-only stories come from smaller outlets; allow a single vetted state outlet through.
@@ -351,7 +354,14 @@ for (const c of clusters) {
     const uk = `${c.d}|${k}`;
     const n = used.get(uk) || 0;
     const type = typeOf(k);
-    if (n < CAP[type] || (c.sc >= BONUS[type] && n < CEILING)) { used.set(uk, n + 1); assigned.push(k); }
+    const sk = `${uk}|sports`;
+    const ns = used.get(sk) || 0;
+    if (c.c === 'sports' && ns >= SPORTS_CAP[type] && c.sc < BONUS[type]) continue;
+    if (n < CAP[type] || (c.sc >= BONUS[type] && n < CEILING)) {
+      used.set(uk, n + 1);
+      if (c.c === 'sports') used.set(sk, ns + 1);
+      assigned.push(k);
+    }
   }
   if (!assigned.length) continue;
   const story = { ...c, p: assigned, x: c.places.filter((k) => !assigned.includes(k)) };
@@ -405,6 +415,9 @@ await fs.writeFile(path.join(OUT, 'index.json'), JSON.stringify({
   generated: new Date(NOW).toISOString(), days, stories: total, outlets: outlets.size, places, poly, stats, arcs, top,
   polls: college.polls,
 }));
+// The overview's top stories in full, so the first screen doesn't need every day file.
+const topSet = new Set(Object.values(top).flat());
+await fs.writeFile(path.join(OUT, 'top.json'), JSON.stringify({ stories: days.flatMap((d) => out.get(d).filter((s) => topSet.has(s.id))) }));
 const space = await spacePromise;
 await fs.writeFile(path.join(OUT, 'space.json'), JSON.stringify(space));
 log(`Space: ${space.launches.length} launches, ${space.upcoming.length} upcoming, ${Object.keys(space.apod).length} APODs, ${Object.values(space.neos).flat().length} asteroid flybys, ${space.crew.count} people in space, ${space.planets.length} new exoplanets`);
