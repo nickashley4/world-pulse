@@ -7,7 +7,8 @@
   "scripts": {
     "refresh": "node scripts/refresh.mjs",
     "publish-data": "sh scripts/publish.sh",
-    "dev": "python3 -m http.server 8080 -d docs"
+    "dev": "python3 -m http.server 8080 -d docs",
+    "og": "node scripts/og.mjs"
   },
   "dependencies": {
     "world-countries": "5.1.0"

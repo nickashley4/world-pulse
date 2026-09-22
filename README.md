@@ -13,6 +13,10 @@ A 3D interactive globe of the past week's important and interesting events — w
 
 Stories are geolocated from headlines, clustered across outlets (with a second tf-idf merge pass for the same story told differently), ranked by how many trusted sources cover them, and softly capped per place per day (3 per country/state, 6 national, 8 space) — heavily covered stories can exceed the cap. Search (`/`) covers the whole week and filters the globe to matching places.
 
+Sports get a tighter cap of their own (1 per country/state per day, 2 national), and templated game previews and box scores are scored down, so a busy game day doesn't bury the news. Stories published since your last visit are marked **New** (tracked in your browser only).
+
+The first screen loads only `index.json` and `top.json` (each day's top stories); the full day files load when you open a place or search.
+
 ## Refresh data
 ```sh
 npm install
@@ -23,4 +27,10 @@ Or run the **Refresh data** workflow from the GitHub Actions tab.
 ## Local
 ```sh
 npm run refresh && npm run dev   # http://localhost:8080
+```
+
+## Link-preview image
+`docs/og.jpg` is the image shown when the site is shared. To re-render it from the live globe (needs Chrome and `npm run dev` running):
+```sh
+npm run og
 ```
