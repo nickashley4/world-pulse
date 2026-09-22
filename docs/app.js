@@ -1,7 +1,7 @@
 import Globe from 'globe.gl';
 import * as THREE from 'three';
 import { feature } from 'topojson-client';
-import { createSpace } from './space.js?v=f476cfaa31';
+import { createSpace } from './space.js?v=58a1adaf35';
 
 const CATS = {
   conflict: { label: 'Conflict', color: '#ff4d5e' },
@@ -746,6 +746,15 @@ async function loadLive() {
     }
   }
   render({ panel: !S.sel });
+}
+
+// ---------- Analytics ----------
+// Cookie-free page counts via GoatCounter, only when a code is set in index.html.
+const gcCode = document.querySelector('meta[name=goatcounter]')?.content.trim();
+if (gcCode && /^[\w-]+$/.test(gcCode)) {
+  const sc = Object.assign(document.createElement('script'), { async: true, src: 'https://gc.zgo.at/count.js' });
+  sc.dataset.goatcounter = `https://${gcCode}.goatcounter.com/count`;
+  document.head.append(sc);
 }
 
 // ---------- Boot ----------

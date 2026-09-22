@@ -40,7 +40,7 @@ try {
     '<style>.panel,.rail,.timeline,.modes,.disc-toast,#settings-btn,#keys-btn{display:none!important}.brand{top:40px;left:48px;padding:16px 22px}.logo{font-size:30px}.meta{font-size:16px}</style>');
     document.getElementById('meta').textContent = 'This week’s news from trusted outlets, on a live 3D globe';` });
   await sleep(1500);
-  const { result } = await send('Page.captureScreenshot', { format: 'jpeg', quality: 85 });
+  const { result } = await send('Page.captureScreenshot', { format: 'jpeg', quality: 80 });
   await fs.writeFile(OUT, Buffer.from(result.data, 'base64'));
   console.log(`wrote ${path.relative(process.cwd(), OUT)}`);
   ws.close();

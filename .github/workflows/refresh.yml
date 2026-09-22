@@ -34,12 +34,23 @@ jobs:
         run: npm ci
       - if: steps.fresh.outputs.skip != 'true'
         run: npm run refresh
+      # Link-preview image: re-rendered from the live globe about once a day (Chrome ships on
+      # the runner). Best effort: a failure here never blocks the data refresh.
+      - name: Re-render link preview
+        if: steps.fresh.outputs.skip != 'true'
+        continue-on-error: true
+        run: |
+          age=$(( $(date +%s) - $(git log -1 --format=%ct -- docs/og.jpg) ))
+          if [ "$age" -lt $((20 * 3600)) ]; then echo "og.jpg is $((age / 3600))h old; skipping"; exit 0; fi
+          python3 -m http.server 8080 -d docs >/dev/null 2>&1 &
+          sleep 1
+          node scripts/og.mjs
       - name: Commit data
         if: steps.fresh.outputs.skip != 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898732+github-actions[bot]@users.noreply.github.com"
-          git add docs/data data
+          git add docs/data data docs/og.jpg
           git diff --cached --quiet && exit 0
           git commit -m "Refresh data"
           git push

@@ -15,6 +15,10 @@ Stories are geolocated from headlines, clustered across outlets (with a second t
 
 Sports get a tighter cap of their own (1 per country/state per day, 2 national), and templated game previews and box scores are scored down, so a busy game day doesn't bury the news. Stories published since your last visit are marked **New** (tracked in your browser only).
 
+Google News results are resolved to the publisher's own URL (cached in `data/gnews.json`). Google rate-limits that lookup per IP, so each refresh resolves what it can, headline links first; the rest keep the Google redirect until a later run gets them.
+
+Place names that double as people's names or other places (Montgomery, Austin, Birmingham…) only count with corroboration, and "X County" never places a story in the state whose city shares the name.
+
 The first screen loads only `index.json` and `top.json` (each day's top stories); the full day files load when you open a place or search.
 
 ## Refresh data
@@ -34,3 +38,7 @@ npm run refresh && npm run dev   # http://localhost:8080
 ```sh
 npm run og
 ```
+The refresh workflow also re-renders it about once a day.
+
+## Visitor counts
+Off by default. Create a free account at [goatcounter.com](https://www.goatcounter.com) (cookie-free, no banner needed), then put your site code in the `goatcounter` meta tag in `docs/index.html`.
