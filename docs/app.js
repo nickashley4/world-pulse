@@ -1,7 +1,7 @@
 import Globe from 'globe.gl';
 import * as THREE from 'three';
 import { feature } from 'topojson-client';
-import { createSpace } from './space.js?v=58a1adaf35';
+import { createSpace } from './space.js?v=fc4a7808cb';
 
 const CATS = {
   conflict: { label: 'Conflict', color: '#ff4d5e' },
