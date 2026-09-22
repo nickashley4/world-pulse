@@ -7,6 +7,7 @@ import { FEEDS, TOPIC_QUERIES, trustOf, isBlockedTitle, host } from './lib/sourc
 import { classify, importance, SPACE_STRONG, SPORTS_FILLER } from './lib/classify.mjs';
 import { loadSpace } from './lib/space.mjs';
 import { loadCollege, OTHER_SPORT_RX } from './lib/college.mjs';
+import { resolveGoogleLinks } from './lib/gnews.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const OUT = path.join(ROOT, 'docs', 'data');
@@ -397,6 +398,7 @@ for (const d of days) {
 }
 
 // ---------- 5. Write ----------
+await resolveGoogleLinks(days.flatMap((d) => out.get(d)), path.join(ROOT, 'data', 'gnews.json'), { log });
 await fs.mkdir(OUT, { recursive: true });
 for (const f of await fs.readdir(OUT)) if (/^day-.*\.json$/.test(f) && !daySet.has(f.slice(4, 14))) await fs.unlink(path.join(OUT, f));
 let total = 0;
