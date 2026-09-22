@@ -137,6 +137,15 @@ const EXTRA = {
 const IGNORE = ['New York Times', 'New York Post', 'Washington Post', 'Los Angeles Times', 'LA Times', 'Wall Street Journal', 'Chicago Tribune', 'Texas Tribune', 'Boston Globe', 'Denver Post', 'Houston Chronicle', 'Miami Herald', 'Times of India', 'Jerusalem Post', 'Japan Times', 'Moscow Times', 'South China Morning Post', 'Kyiv Independent', 'Indiana Jones', 'Paris Hilton', 'Jordan Love', 'Michael Jordan', 'New England', 'Latin America', 'South America', 'North America', 'Central America', 'Native American', 'Indian Ocean', 'Mexican-American', 'Georgia Bulldogs'];
 const WEAK = new Set(['Jordan', 'Chad', 'Korea', 'Congo', 'Charleston', 'Portland', 'Richmond', 'Columbus', 'Aggies', 'Cowboys', 'Raiders', 'Chiefs', 'Titans', 'Patriots', 'Vikings', 'Falcons', 'Dolphins', 'Jaguars', 'Browns', 'Guardians', 'Volunteers', 'Wolverines', 'Mountaineers', 'Badgers', 'Predators', 'Penguins', 'Kraken', 'Thunder']);
 
+// City aliases that are also common names or other places ("Colson Montgomery", "Birmingham,
+// England"): weak, and unlike other weak aliases a Google News query for the city isn't enough to
+// place a story. It takes a strong alias in the text or an outlet from that state.
+const NAME_LIKE = new Set(['Montgomery', 'Auburn', 'Orlando', 'Savannah', 'Charlotte', 'Cleveland', 'Eugene', 'Austin', 'Casper', 'Raleigh', 'Lansing', 'Dayton', 'Durham', 'Flint', 'Billings', 'Reno', 'Providence', 'Birmingham', 'Stamford', 'Worcester', 'Bangor', 'Norfolk', 'Toledo', 'Memphis', 'Springfield']);
+NAME_LIKE.forEach((a) => WEAK.add(a));
+// Words that can precede a place in a Title Case headline without making it a person's name.
+const LEAD = new Set('In At Near From To Of For On By Into Across Around Outside Inside Downtown North South East West Northern Southern Eastern Western Central Greater Metro Rural Suburban Northeast Northwest Southeast Southwest New Old Man Woman Teen Boy Girl Police Fire City Hits Rocks Slams Storm Flood Flooding Shooting Crash After Before Amid Over Leaves Kills Hits'.split(' '));
+const STATE_NAMES = new Set(STATES.map((s) => s[1]));
+
 const DEMONYM_SKIP = new Set(['American', 'Georgian', 'Dominican', 'Guinean', 'Congolese', 'Samoan', 'Virgin Islander', 'Micronesian', 'Chadian', 'Nigerien']);
 const CAPITAL_SKIP = new Set(['Washington D.C.', 'Victoria', 'Kingston', 'Georgetown', 'Hamilton', 'Jamestown', 'Stanley', 'Plymouth', "Saint John's", 'Kingstown', 'Panama City', 'San José', 'Nassau', 'Castries', 'Basseterre', 'Roseau', 'Road Town', 'The Valley', 'Avarua', 'Palikir']);
 const INCLUDE_NON_INDEPENDENT = new Set(['PSE', 'TWN', 'UNK', 'ESH', 'GRL', 'PRI', 'NCL', 'FLK', 'HKG']);
@@ -202,10 +211,22 @@ export function buildGazetteer(extraAliases = []) {
   function geo(text) {
     const out = [];
     if (!text) return out;
+    // In Title Case headlines every word is capitalized, so neighbouring capitals say nothing.
+    const titleCase = !/(?<![\p{L}'’])\p{Ll}\p{L}{4,}/u.test(text);
     for (const m of text.matchAll(re)) {
       const a = m[1];
       const key = alias.get(a);
-      if (key) out.push({ key, alias: a, weak: WEAK.has(a) });
+      if (!key) continue;
+      const after = text.slice(m.index + a.length, m.index + a.length + 10);
+      // "Montgomery County", "Orange Parish": a county named like a city, often in another state.
+      if (key.startsWith('s:') && !STATE_NAMES.has(a) && /^ (County|Parish|Township)\b/.test(after)) continue;
+      if (NAME_LIKE.has(a) && !titleCase) {
+        // "Colson Montgomery", "Austin Reaves": preceded or followed by another capitalized name.
+        const prev = text.slice(0, m.index).match(/([A-Z][\p{L}'’.-]+) $/u)?.[1];
+        const next = after.match(/^ ([A-Z][\p{L}'’-]+)/u)?.[1];
+        if ((prev && !LEAD.has(prev)) || (next && /^[A-Z][a-z]+$/.test(next) && !alias.has(`${a} ${next}`) && !LEAD.has(next))) continue;
+      }
+      out.push({ key, alias: a, weak: WEAK.has(a), nameLike: NAME_LIKE.has(a) });
     }
     return out;
   }

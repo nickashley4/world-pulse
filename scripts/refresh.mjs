@@ -157,7 +157,10 @@ function placesFor(it) {
     const hs = hits.filter((h) => h.key === k);
     if (hs.some((h) => !h.weak)) return true;
     // weak alias only (e.g. "Jordan", "Chiefs"): need corroboration
-    return it.q === k || G.geo(text).some((h) => h.key === k && !h.weak);
+    if (G.geo(text).some((h) => h.key === k && !h.weak)) return true;
+    // Name-like city ("Montgomery"): the city's own news query doesn't count; a state outlet does.
+    if (hs.every((h) => h.nameLike)) return !!it.st?.includes(k.slice(2));
+    return it.q === k;
   });
   if (!keys.length && it.h && it.s) keys = G.geo(it.s).filter((h) => !h.weak).slice(0, 1).map((h) => h.key);
   if (!keys.length && it.st) {
