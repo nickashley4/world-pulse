@@ -1,7 +1,7 @@
 import Globe from 'globe.gl';
 import * as THREE from 'three';
 import { feature } from 'topojson-client';
-import { createSpace } from './space.js?v=526e025e31';
+import { createSpace } from './space.js?v=5ca4b15fb3';
 
 const CATS = {
   conflict: { label: 'Conflict', color: '#ff4d5e' },
@@ -11,6 +11,7 @@ const CATS = {
   science: { label: 'Science', color: '#39d0ff' },
   sports: { label: 'Sports', color: '#3ddc84' },
   business: { label: 'Business', color: '#ffd166' },
+  crime: { label: 'Crime', color: '#2ec4b6' },
   culture: { label: 'Culture', color: '#ff6fb5' },
   general: { label: 'World', color: '#c3cede' },
 };
@@ -50,10 +51,40 @@ const getJSON = (u, opts) => fetch(u, opts).then((r) => { if (!r.ok) throw new E
 const hexRgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)).join(',');
 
 const savedPrefs = loadPrefs();
+// Categories that didn't exist when the prefs were saved start switched on.
+const PREFS_VERSION = 2;
+const NEW_CATS = { 2: ['crime'] };
+function savedCats() {
+  const cats = savedPrefs?.cats?.filter((c) => CATS[c]);
+  if (!cats?.length) return Object.keys(CATS);
+  for (let v = (savedPrefs.v || 1) + 1; v <= PREFS_VERSION; v++) cats.push(...(NEW_CATS[v] || []));
+  return cats;
+}
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+// Phones are tall and narrow; pull the camera back so the whole globe fits the width.
+const narrow = () => innerWidth < 640;
+const homeAlt = (space = false) => (space ? 3.1 : 2.4) * (narrow() ? 1.55 : 1);
+const motionMs = (ms) => (reduceMotion ? 0 : ms);
+
+// "New" = published after the data this browser last saw. A visit only counts as over after
+// 30 minutes, so reloading doesn't wipe the badges.
+const VISIT_KEY = 'wp.visit';
+let newSince = null;
+function trackVisit(generated) {
+  let v = null;
+  try { v = JSON.parse(localStorage.getItem(VISIT_KEY)); } catch {}
+  const now = Date.now();
+  if (!v || typeof v !== 'object') v = { at: now, prev: null, seen: generated };
+  else if (now - v.at > 30 * 60e3) v = { at: now, prev: v.seen, seen: generated };
+  else v = { ...v, at: now, seen: generated };
+  try { localStorage.setItem(VISIT_KEY, JSON.stringify(v)); } catch {}
+  newSince = v.prev && v.prev !== generated ? Date.parse(v.prev) : null;
+}
+const isNew = (s) => newSince != null && s.ts > newSince;
 const DEFAULT_LAYERS = { night: true, glow: true, arcs: true, quakes: true, events: true, iss: true, launches: true, aurora: true };
 const S = {
   idx: null, day: null, sel: null,
-  cats: new Set(savedPrefs?.cats?.filter((c) => CATS[c]).length ? savedPrefs.cats.filter((c) => CATS[c]) : Object.keys(CATS)),
+  cats: new Set(savedCats()),
   layers: { ...DEFAULT_LAYERS, ...savedPrefs?.layers },
   mode: 'earth',
   cache: new Map(), stats: new Map(), hover: null,
@@ -61,7 +92,7 @@ const S = {
   q: '', hits: null, hitIds: null,
 };
 let world, polys, material, SP;
-let autoRotateEnabled = savedPrefs?.autoRotate !== false;
+let autoRotateEnabled = savedPrefs?.autoRotate ?? !reduceMotion;
 
 // ---------- Helpers ----------
 const selDays = () => (S.day === 'week' ? S.idx.days : [S.day]);
@@ -74,6 +105,14 @@ const timeLabel = (ts) => new Date(ts).toLocaleString('en-US', { month: 'short',
 function loadDay(d) {
   if (!S.cache.has(d)) S.cache.set(d, getJSON(`data/day-${d}.json?v=${encodeURIComponent(S.idx.generated)}`).then((j) => j.stories).catch(() => []));
   return S.cache.get(d);
+}
+
+// Full top stories for every day, so the overview renders without fetching all seven day files.
+let topPromise;
+function loadTop() {
+  topPromise ||= getJSON(`data/top.json?v=${encodeURIComponent(S.idx.generated)}`).then((j) => j.stories)
+    .catch(() => Promise.all(S.idx.days.map(loadDay)).then((all) => all.flat()));
+  return topPromise;
 }
 
 function computeStats() {
@@ -192,7 +231,7 @@ function initGlobe() {
     .arcStartLat('sLat').arcStartLng('sLng').arcEndLat('eLat').arcEndLng('eLng')
     .arcColor((d) => d.colors ?? [`rgba(${d.rgb},0.05)`, `rgba(${d.rgb},0.95)`])
     .arcStroke(0.9).arcDashLength((d) => d.dash ?? 0.45).arcDashGap((d) => d.gap ?? 0.25)
-    .arcDashInitialGap((d) => d.initialGap ?? Math.random()).arcDashAnimateTime((d) => d.animate ?? 2600)
+    .arcDashInitialGap((d) => d.initialGap ?? Math.random()).arcDashAnimateTime((d) => (reduceMotion ? 0 : d.animate ?? 2600))
     .arcAltitude((d) => d.alt ?? null).arcAltitudeAutoScale(0.45)
     .arcLabel((d) => d.label ?? `<div class="tt arc-tt" style="--c:${CATS[d.cat]?.color}">
       <span class="tag">${CATS[d.cat]?.label || ''}</span>
@@ -206,7 +245,7 @@ function initGlobe() {
     .htmlAltitude((d) => d.alt ?? 0.02)
     .htmlElement(() => SP.issElement());
 
-  world.pointOfView({ lat: 28, lng: -35, altitude: 2.4 });
+  world.pointOfView({ lat: 28, lng: -35, altitude: homeAlt() });
   const ctr = world.controls();
   ctr.autoRotate = autoRotateEnabled;
   ctr.autoRotateSpeed = 0.35;
@@ -325,6 +364,7 @@ function renderChrome() {
   document.querySelectorAll('.modes [data-mode]').forEach((b) => b.classList.toggle('on', b.dataset.mode === S.mode));
   $('#layers').innerHTML = '<h4>Layers</h4>' + Object.entries(S.mode === 'space' ? SPACE_LAYERS : LAYERS).map(([k, l]) => `
     <button class="chip toggle ${S.layers[k] ? '' : 'off'}" data-layer="${k}" style="--c:${l.color}"><span class="sw"></span>${l.label}</button>`).join('');
+  $('#days .day.on')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   $('#play').classList.toggle('on', !!S.play);
   $('#play').textContent = S.play ? '❚❚' : '▶';}
 
@@ -336,7 +376,7 @@ function card(s) {
   const more = s.ns > s.src.length ? `<span class="more">+${s.ns - s.src.length} more</span>` : '';
   return `<article class="story" data-story="${s.id}" style="--c:${c.color}">
     ${s.img ? `<img class="thumb" src="${esc(s.img)}" alt="" loading="lazy" onerror="this.remove()">` : ''}
-    <div class="s-meta"><span class="tag">${c.label}${s.k === 'college' ? ' · College' : ''}</span><span>${timeLabel(s.ts)}</span>${s.sc >= 14 ? '<span class="major">Major</span>' : ''}</div>
+    <div class="s-meta"><span class="tag">${c.label}${s.k === 'college' ? ' · College' : ''}</span><span>${timeLabel(s.ts)}</span>${s.sc >= 14 ? '<span class="major">Major</span>' : ''}${isNew(s) ? '<span class="new">New</span>' : ''}</div>
     <a class="hl" href="${esc(s.u)}" target="_blank" rel="noopener">${esc(s.t)}</a>
     ${s.s ? `<p>${esc(s.s)}</p>` : ''}
     <div class="srcs">${srcs}${more}</div>
@@ -399,7 +439,9 @@ async function renderPanel() {
   const token = ++S.panelToken;
   const body = $('#panel-body');
   if (S.hits) { body.innerHTML = searchView(); body.scrollTop = 0; return; }
-  const stories = (await Promise.all(selDays().map(loadDay))).flat().filter((s) => S.cats.has(s.c));
+  const days = new Set(selDays());
+  const stories = (S.sel ? (await Promise.all(selDays().map(loadDay))).flat() : (await loadTop()).filter((s) => days.has(s.d)))
+    .filter((s) => S.cats.has(s.c));
   if (token !== S.panelToken) return;
   const byRecency = (a, b) => (b.d > a.d ? 1 : b.d < a.d ? -1 : b.sc - a.sc);
 
@@ -411,7 +453,8 @@ async function renderPanel() {
     const ev = naturalEventsSummary();
     body.innerHTML = `
       <div class="p-head"><div class="eyebrow">${periodLabel()}</div><h2>${S.day === 'week' ? 'The week on Earth' : 'What’s happening'}</h2>
-      <div class="sub">Click any country, state, or pin. ${S.idx.stories.toLocaleString()} stories this week from ${S.idx.outlets} trusted outlets.</div></div>
+      <div class="sub">Click any country, state, or pin. ${S.idx.stories.toLocaleString()} stories this week from ${S.idx.outlets} trusted outlets.</div>
+      ${newSince ? `<div class="since"><span class="new">New</span> marks stories since your last visit (${timeLabel(newSince)})</div>` : ''}</div>
       ${SP.teaser()}
       <h3>Hotspots</h3>
       <div class="hotspots">${hot.map(([k, st]) => `<button class="place-chip" data-place="${k}" style="--c:${CATS[st.cat].color}"><span class="dot"></span>${flag(k)} ${esc(place(k).n)}</button>`).join('')}</div>
@@ -475,7 +518,7 @@ function select(key, { fly = true } = {}) {
     const p = place(key);
     const alt = key === 'c:USA' ? 1.15 : p.t === 'state' ? 0.75 : 1.5;
     const lat = key === 'c:USA' ? 38 : p.lat;
-    world.pointOfView({ lat: lat - (innerWidth < 640 ? 8 * alt : 0), lng: p.lng + (innerWidth > 900 ? 12 * alt : 0), altitude: alt }, 1200);
+    world.pointOfView({ lat: lat - (narrow() ? 8 * alt : 0), lng: p.lng + (innerWidth > 900 ? 12 * alt : 0), altitude: alt * (narrow() ? 1.3 : 1) }, motionMs(1200));
   }
   $('#panel').classList.remove('collapsed');
   render();
@@ -483,7 +526,7 @@ function select(key, { fly = true } = {}) {
 
 function overview() {
   S.sel = null;
-  world.pointOfView({ altitude: 2.4 }, 1000);
+  world.pointOfView({ altitude: homeAlt() }, motionMs(1000));
   render();
 }
 
@@ -503,14 +546,14 @@ function setMode(mode) {
   S.mode = mode;
   if (mode === 'space') {
     S.sel = null;
-    world.controls().autoRotate = true;
-    world.pointOfView({ altitude: 3.1 }, 1200);
+    world.controls().autoRotate = autoRotateEnabled;
+    world.pointOfView({ altitude: homeAlt(true) }, motionMs(1200));
     $('#panel').classList.remove('collapsed');
     render();
     SP.enter();
   } else {
     SP.exit();
-    world.pointOfView({ altitude: 2.4 }, 1000);
+    world.pointOfView({ altitude: homeAlt() }, motionMs(1000));
     render();
   }
 }
@@ -570,7 +613,7 @@ $('#keys').addEventListener('click', (e) => {
 // Everything here writes to a single localStorage key; there's no account, so
 // "settings" just means "what this browser remembers for next time."
 function persistPrefs() {
-  savePrefs({ view: S.mode, period: S.day === 'week' ? 'week' : 'today', autoRotate: autoRotateEnabled, cats: [...S.cats], layers: { ...S.layers } });
+  savePrefs({ v: PREFS_VERSION, view: S.mode, period: S.day === 'week' ? 'week' : 'today', autoRotate: autoRotateEnabled, cats: [...S.cats], layers: { ...S.layers } });
 }
 function showSettings(open) {
   if (open) renderSettings();
@@ -593,8 +636,8 @@ function resetSettings() {
   if (S.mode === 'space') setMode('earth');
   S.cats = new Set(Object.keys(CATS));
   S.layers = { ...DEFAULT_LAYERS };
-  autoRotateEnabled = true;
-  world.controls().autoRotate = true;
+  autoRotateEnabled = !reduceMotion;
+  world.controls().autoRotate = autoRotateEnabled;
   setDay(S.idx.days.at(-1));
   try { localStorage.removeItem(PREFS_KEY); } catch {}
   renderSettings();
@@ -709,6 +752,7 @@ async function loadLive() {
 async function main() {
   const [idx, wt, ut] = await Promise.all([getJSON('data/index.json', { cache: 'no-cache' }), getJSON(WORLD_TOPO), getJSON(US_TOPO)]);
   S.idx = idx;
+  trackVisit(idx.generated);
   S.day = savedPrefs?.period === 'week' ? 'week' : idx.days.at(-1);
   const countries = feature(wt, wt.objects.countries).features
     .filter((f) => f.id !== '840' && f.properties.name !== 'Antarctica')
