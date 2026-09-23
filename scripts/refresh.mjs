@@ -8,6 +8,7 @@ import { classify, importance, SPACE_STRONG, SPORTS_FILLER } from './lib/classif
 import { loadSpace } from './lib/space.mjs';
 import { loadCollege, OTHER_SPORT_RX } from './lib/college.mjs';
 import { resolveGoogleLinks } from './lib/gnews.mjs';
+import { loadUpcoming } from './lib/upcoming.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const OUT = path.join(ROOT, 'docs', 'data');
@@ -71,6 +72,7 @@ const G = buildGazetteer(college.aliases);
 const days = Array.from({ length: NDAYS }, (_, i) => etDay(NOW - (NDAYS - 1 - i) * 864e5));
 const daySet = new Set(days);
 const spacePromise = loadSpace({ root: ROOT, fetchJSON, etDay, days });
+const upcomingPromise = loadUpcoming({ root: ROOT, places: G.places, geo: G.geo, today: days.at(-1), log });
 
 // ---------- 1. Collect ----------
 const jobs = [
@@ -427,6 +429,11 @@ const topSet = new Set(Object.values(top).flat());
 await fs.writeFile(path.join(OUT, 'top.json'), JSON.stringify({ stories: days.flatMap((d) => out.get(d).filter((s) => topSet.has(s.id))) }));
 const space = await spacePromise;
 await fs.writeFile(path.join(OUT, 'space.json'), JSON.stringify(space));
+const upcoming = await upcomingPromise;
+await fs.writeFile(path.join(OUT, 'upcoming.json'), JSON.stringify(upcoming));
+const kinds = {};
+for (const e of upcoming.events) kinds[e.k] = (kinds[e.k] || 0) + 1;
+log(`Coming up (to ${upcoming.to}): ${Object.entries(kinds).map(([k, n]) => `${n} ${k}`).join(', ') || 'nothing scheduled'}`);
 log(`Space: ${space.launches.length} launches, ${space.upcoming.length} upcoming, ${Object.keys(space.apod).length} APODs, ${Object.values(space.neos).flat().length} asteroid flybys, ${space.crew.count} people in space, ${space.planets.length} new exoplanets`);
 await college.save();
 log(`Merged ${merges} duplicate clusters; dropped ${droppedCollege} unranked/other-sport college clusters.`);

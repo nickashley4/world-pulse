@@ -1,7 +1,7 @@
 import Globe from 'globe.gl';
 import * as THREE from 'three';
 import { feature } from 'topojson-client';
-import { createSpace } from './space.js?v=fc4a7808cb';
+import { createSpace } from './space.js?v=56c577c4c7';
 
 const CATS = {
   conflict: { label: 'Conflict', color: '#ff4d5e' },
@@ -21,7 +21,16 @@ const LAYERS = {
   arcs: { label: 'Story links', color: '#5aa9ff' },
   quakes: { label: 'Earthquakes', color: '#ffc850' },
   events: { label: 'Fires · storms · volcanoes', color: '#ff7a2f' },
+  upcoming: { label: 'Coming up', color: '#ffd27a' },
 };
+// Scheduled events from data/upcoming.json. Eclipse icons depend on which body goes dark.
+const UPCOMING = {
+  election: { label: 'Election', icon: '🗳️', color: '#6f8cff' },
+  sports: { label: 'Sports', icon: '🏆', color: '#3ddc84' },
+  eclipse: { label: 'Eclipse', icon: '🌘', color: '#ffd27a' },
+  meteor: { label: 'Meteor shower', icon: '☄️', color: '#c77dff' },
+};
+const upIcon = (e) => (e.k === 'eclipse' && /lunar/.test(e.t) ? '🌕' : UPCOMING[e.k]?.icon || '📅');
 const SPACE_LAYERS = {
   iss: { label: 'ISS live orbit', color: '#e6d2ff' },
   launches: { label: 'Launches', color: '#c77dff' },
@@ -81,14 +90,14 @@ function trackVisit(generated) {
   newSince = v.prev && v.prev !== generated ? Date.parse(v.prev) : null;
 }
 const isNew = (s) => newSince != null && s.ts > newSince;
-const DEFAULT_LAYERS = { night: true, glow: true, arcs: true, quakes: true, events: true, iss: true, launches: true, aurora: true };
+const DEFAULT_LAYERS = { night: true, glow: true, arcs: true, quakes: true, events: true, upcoming: true, iss: true, launches: true, aurora: true };
 const S = {
   idx: null, day: null, sel: null,
   cats: new Set(savedCats()),
   layers: { ...DEFAULT_LAYERS, ...savedPrefs?.layers },
   mode: 'earth',
   cache: new Map(), stats: new Map(), hover: null,
-  quakes: [], events: [], play: null, panelToken: 0,
+  quakes: [], events: [], upcoming: [], upMarkers: [], play: null, panelToken: 0,
   q: '', hits: null, hitIds: null,
 };
 let world, polys, material, SP;
@@ -243,7 +252,7 @@ function initGlobe() {
     .labelLabel((d) => `<div class="tt"><b>${esc(d.icon)} ${esc(d.title)}</b><span>${esc(d.kind)} · NASA EONET</span></div>`)
     .htmlElementsData([])
     .htmlAltitude((d) => d.alt ?? 0.02)
-    .htmlElement(() => SP.issElement());
+    .htmlElement((d) => (d.iss ? SP.issElement() : upMarkerElement(d)));
 
   world.pointOfView({ lat: 28, lng: -35, altitude: homeAlt() });
   const ctr = world.controls();
@@ -322,6 +331,58 @@ function arcs() {
     }).filter(Boolean);
 }
 
+// ---------- Coming up ----------
+const todayET = () => etDay(Date.now());
+const daysUntil = (d) => Math.round((Date.parse(`${d}T12:00:00Z`) - Date.parse(`${todayET()}T12:00:00Z`)) / 864e5);
+// Still ahead or underway today; the file can be up to a day old.
+const liveUpcoming = () => S.upcoming.filter((e) => (e.d2 || e.d) >= todayET());
+function whenLabel(e) {
+  const n = daysUntil(e.d);
+  if (n < 0) return `Underway · ends ${dayLabel(e.d2, { month: 'short', day: 'numeric' })}`;
+  return n === 0 ? 'Today' : n === 1 ? 'Tomorrow' : `In ${n} days`;
+}
+function upcomingRows(events) {
+  return events.map((e) => {
+    const c = UPCOMING[e.k] || UPCOMING.election;
+    const pk = e.p.find((k) => place(k) && k !== S.sel);
+    const title = e.k === 'election' ? `${e.t} votes` : e.t;
+    const until = e.d2 && daysUntil(e.d) >= 0 ? ` · until ${dayLabel(e.d2, { month: 'short', day: 'numeric' })}` : '';
+    return `<div class="up-ev" style="--c:${c.color}">
+      <span class="up-date"><small>${dayLabel(e.d, { month: 'short' })}</small><b>${dayLabel(e.d, { day: 'numeric' })}</b></span>
+      <span class="up-body">
+        <span class="s-meta"><span class="tag">${upIcon(e)} ${c.label}</span><span>${whenLabel(e)}${until}</span></span>
+        ${pk ? `<button class="up-t" data-place="${pk}">${esc(title)}</button>` : `<a class="up-t" href="${esc(e.u)}" target="_blank" rel="noopener">${esc(title)}</a>`}
+        ${e.s ? `<small>${esc(e.s)}</small>` : ''}
+        <a class="up-more" href="${esc(e.u)}" target="_blank" rel="noopener">Wikipedia ↗</a>
+      </span></div>`;
+  }).join('');
+}
+// One marker per place (or per eclipse point), rebuilt only when the data loads so globe.gl keeps
+// the same DOM elements across renders.
+function buildUpMarkers() {
+  const byKey = new Map();
+  for (const e of liveUpcoming()) {
+    const spots = e.lat != null ? [[`@${e.lat},${e.lng}`, e.lat, e.lng]]
+      : e.p.map((k) => place(k)).map((p, i) => p?.lat != null && [e.p[i], p.lat, p.lng]).filter(Boolean);
+    for (const [key, lat, lng] of spots) {
+      if (!byKey.has(key)) byKey.set(key, { key, lat, lng, alt: 0.012, events: [] });
+      byKey.get(key).events.push(e);
+    }
+  }
+  S.upMarkers = [...byKey.values()];
+}
+function upMarkerElement(m) {
+  const el = document.createElement('button');
+  const e = m.events[0];
+  el.className = 'up-marker';
+  el.style.setProperty('--c', (UPCOMING[e.k] || UPCOMING.election).color);
+  el.innerHTML = `<span>${upIcon(e)}</span><b>${dayLabel(e.d, { month: 'short', day: 'numeric' })}</b>${m.events.length > 1 ? `<i>+${m.events.length - 1}</i>` : ''}`;
+  el.title = m.events.map((x) => `${upIcon(x)} ${x.k === 'election' ? `${x.t} votes` : x.t} · ${dayLabel(x.d, { month: 'short', day: 'numeric' })}${x.s ? ` — ${x.s}` : ''}`).join('\n');
+  el.onclick = () => (place(m.key) ? select(m.key) : window.open(e.u, '_blank', 'noopener'));
+  return el;
+}
+const upMarkers = () => (S.layers.upcoming && !S.hits ? S.upMarkers : []);
+
 function naturalEvents() {
   if (!S.layers.events) return [];
   const days = new Set(selDays());
@@ -335,7 +396,7 @@ function render({ panel = true } = {}) {
   document.body.classList.toggle('space-mode', space);
   world.polygonCapColor(capColor).polygonStrokeColor(world.polygonStrokeColor()).polygonAltitude(polyAlt);
   if (space) SP.renderGlobe();
-  else world.pointsData(pins()).ringsData(rings()).arcsData(arcs()).labelsData(naturalEvents()).hexBinPointsData([]).pathsData([]).htmlElementsData([]);
+  else world.pointsData(pins()).ringsData(rings()).arcsData(arcs()).labelsData(naturalEvents()).hexBinPointsData([]).pathsData([]).htmlElementsData(upMarkers());
   material.uniforms.nightOn.value = S.layers.night ? 1 : 0;
   const us = S.stats.get('c:USA');
   const usEl = $('#us-count');
@@ -451,6 +512,7 @@ async function renderPanel() {
     const hot = [...S.stats].filter(([k]) => place(k)?.lat != null).sort((a, b) => b[1].top - a[1].top).slice(0, 12);
     const quakes = S.quakes.filter((q) => selDays().includes(q.day) && q.mag >= 5.5).sort((a, b) => b.mag - a.mag).slice(0, 6);
     const ev = naturalEventsSummary();
+    const soon = liveUpcoming();
     body.innerHTML = `
       <div class="p-head"><div class="eyebrow">${periodLabel()}</div><h2>${S.day === 'week' ? 'The week on Earth' : 'What’s happening'}</h2>
       <div class="sub">Click any country, state, or pin. ${S.idx.stories.toLocaleString()} stories this week from ${S.idx.outlets} trusted outlets.</div>
@@ -458,15 +520,17 @@ async function renderPanel() {
       ${SP.teaser()}
       <h3>Hotspots</h3>
       <div class="hotspots">${hot.map(([k, st]) => `<button class="place-chip" data-place="${k}" style="--c:${CATS[st.cat].color}"><span class="dot"></span>${flag(k)} ${esc(place(k).n)}</button>`).join('')}</div>
+      ${soon.length ? `<h3>Coming up</h3>${upcomingRows(soon.slice(0, 3))}${soon.length > 3 ? `<details class="up-all"><summary>${soon.length - 3} more in the next ${S.upcomingDays} days</summary>${upcomingRows(soon.slice(3))}</details>` : ''}` : ''}
       <h3>Top stories</h3>${storyList(top, false)}
       ${quakes.length ? `<h3>Significant earthquakes</h3>${quakes.map((q) => `<a class="list-row" href="${esc(q.url)}" target="_blank" rel="noopener"><span class="mag">M${q.mag.toFixed(1)}</span><span>${esc(q.place)}<small>${timeLabel(q.time)} · USGS</small></span></a>`).join('')}` : ''}
       ${ev ? `<h3>Natural events</h3>${ev}` : ''}
-      <div class="foot">Sources: AP, Reuters, BBC, NPR, PBS, The Guardian, Al Jazeera, DW, France 24, UN News, ESPN, NASA, and vetted state outlets. Stories are clustered across outlets and ranked by how many trusted sources cover them. Live layers from USGS and NASA EONET. College sports limited to AP Top 25 football and men’s basketball (via ESPN).<br>Updated ${new Date(S.idx.generated).toLocaleString()}.</div>`;
+      <div class="foot">Sources: AP, Reuters, BBC, NPR, PBS, The Guardian, Al Jazeera, DW, France 24, UN News, ESPN, NASA, and vetted state outlets. Stories are clustered across outlets and ranked by how many trusted sources cover them. Live layers from USGS and NASA EONET. College sports limited to AP Top 25 football and men’s basketball (via ESPN). Coming up: Wikipedia’s election and sports calendars and NASA eclipse predictions.<br>Updated ${new Date(S.idx.generated).toLocaleString()}.</div>`;
     return;
   }
 
   const k = S.sel, p = place(k);
   const mine = stories.filter((s) => s.p.includes(k)).sort(byRecency);
+  const here = liveUpcoming().filter((e) => e.p.includes(k));
   const st = S.stats.get(k);
   const type = k === 'c:USA' ? 'National' : p.t === 'state' ? 'U.S. State' : 'Country';
   let extra = '';
@@ -485,7 +549,8 @@ async function renderPanel() {
       <h2>${flag(k)} ${esc(k === 'c:USA' ? 'United States' : p.n)}</h2>
       <div class="sub">${st ? `${st.count} ${st.count === 1 ? 'story' : 'stories'}` : 'Quiet'}</div>
     </div>
-    ${k === 'c:USA' ? '<h3>National news</h3>' : ''}${storyList(mine)}${extra}`;
+    ${here.length ? `<h3>Coming up here</h3>${upcomingRows(here)}${mine.length ? '<h3>Stories</h3>' : ''}` : ''}
+    ${k === 'c:USA' && !here.length ? '<h3>National news</h3>' : ''}${storyList(mine)}${extra}`;
   body.scrollTop = 0;
   // Opened from a story link: scroll to that story and flash it.
   const focused = S.focus && body.querySelector(`[data-story="${S.focus}"]`);
@@ -748,6 +813,17 @@ async function loadLive() {
   render({ panel: !S.sel });
 }
 
+async function loadUpcoming() {
+  try {
+    const j = await getJSON(`data/upcoming.json?v=${encodeURIComponent(S.idx.generated)}`);
+    S.upcoming = j.events || [];
+    S.upcomingDays = daysUntil(j.to);
+  } catch { return; }
+  buildUpMarkers();
+  // Leave an open place's panel (and its scroll position) alone unless it gains a "Coming up here".
+  render({ panel: !S.sel || S.upcoming.some((e) => e.p.includes(S.sel)) });
+}
+
 // ---------- Analytics ----------
 // Cookie-free page counts via GoatCounter, only when a code is set in index.html.
 const gcCode = document.querySelector('meta[name=goatcounter]')?.content.trim();
@@ -774,7 +850,7 @@ async function main() {
   $('#meta').textContent = `Updated ${gen.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, ${gen.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} · ${idx.stories.toLocaleString()} stories`;
 
   initGlobe();
-  SP = createSpace({ world, S, esc, timeLabel, dayLabel, selDays, periodLabel, storyList, loadDay, polys, render });
+  SP = createSpace({ world, S, esc, timeLabel, dayLabel, selDays, periodLabel, storyList, loadDay, polys, render, upcomingRows, liveUpcoming });
   const initial = readHash();
   if (innerWidth < 640) $('#panel').classList.add('collapsed');
   if (initial) select(initial);
@@ -782,6 +858,7 @@ async function main() {
   else render();
   setTimeout(() => $('#loading').classList.add('done'), 600);
   loadLive();
+  loadUpcoming();
   SP.load().then(() => { if (S.mode === 'earth' && !S.sel && !S.hits) renderPanel(); });
 }
 

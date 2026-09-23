@@ -1,7 +1,7 @@
 // Space mode: live ISS orbit, launches, aurora forecast, APOD, asteroid flybys, the Sun, space news.
 import * as satellite from 'satellite.js';
 import { geoContains } from 'd3-geo';
-import { createDiscoveries } from './discoveries.js?v=fc4a7808cb';
+import { createDiscoveries } from './discoveries.js?v=56c577c4c7';
 
 const ISS_ALT = 0.066; // ~420 km in globe radii
 const STATUS = {
@@ -40,7 +40,7 @@ function countdown(t) {
 }
 
 export function createSpace(ctx) {
-  const { world, S, esc, timeLabel, dayLabel, selDays, periodLabel, storyList, loadDay, polys, render } = ctx;
+  const { world, S, esc, timeLabel, dayLabel, selDays, periodLabel, storyList, loadDay, polys, render, upcomingRows, liveUpcoming } = ctx;
   let data = null, loading = null, satrec = null, aurora = [], kpNow = null;
   let timer = null, pathTimer = null, follow = false, over = '—', tickN = 0, shownLaunches = [], shownUpcoming = [], issPaths = [];
   const iss = { lat: 0, lng: 0, alt: ISS_ALT, iss: true };
@@ -326,8 +326,9 @@ export function createSpace(ctx) {
         <div class="sub">Max Kp ${kpMax.toFixed(1)} — ${kpText(kpMax)}${kpMax >= 5 ? ' · auroras reached lower latitudes' : ''}</div>
       </div>` : '';
 
+    const skyEvents = liveUpcoming().filter((e) => e.k === 'eclipse' || e.k === 'meteor');
     const strip = disc.strip();
-    const nav = [[strip && 'disc', 'Discoveries'], ['iss', 'ISS'], ['launch', 'Launches'], ['news', 'News'], [(neoHtml || sun) && 'sky', 'Sky']]
+    const nav = [[strip && 'disc', 'Discoveries'], ['iss', 'ISS'], ['launch', 'Launches'], ['news', 'News'], [(skyEvents.length || neoHtml || sun) && 'sky', 'Sky']]
       .filter(([k]) => k).map(([k, label]) => `<button data-sp="go:${k}" data-sec="${k}">${label}</button>`).join('');
 
     body.innerHTML = `
@@ -343,8 +344,9 @@ export function createSpace(ctx) {
       <h3 id="sec-iss">ISS right now</h3>${issCard}
       <h3 id="sec-launch">Launches</h3>${launches}
       <h3 id="sec-news">Space news</h3>${storyList(stories.slice(0, week ? 40 : 15), week)}
-      ${neoHtml ? `<h3 id="sec-sky">Asteroid flybys</h3>${neoHtml}<div class="sub" style="font-size:11px;margin-top:6px">LD = lunar distances (1 LD ≈ 384,400 km)</div>` : ''}
-      ${sun ? `<h3${neoHtml ? '' : ' id="sec-sky"'}>The Sun</h3>${sun}` : ''}
+      ${skyEvents.length ? `<h3 id="sec-sky">Coming up in the sky</h3>${upcomingRows(skyEvents)}` : ''}
+      ${neoHtml ? `<h3${skyEvents.length ? '' : ' id="sec-sky"'}>Asteroid flybys</h3>${neoHtml}<div class="sub" style="font-size:11px;margin-top:6px">LD = lunar distances (1 LD ≈ 384,400 km)</div>` : ''}
+      ${sun ? `<h3${neoHtml || skyEvents.length ? '' : ' id="sec-sky"'}>The Sun</h3>${sun}` : ''}
       <div class="foot">Space data: NASA (APOD, NeoWs, news), ESA, NOAA Space Weather Prediction Center (flares, Kp, aurora forecast), The Space Devs Launch Library, NASA Exoplanet Archive (Caltech/IPAC), live ISS orbit from its current TLE via wheretheiss.at. News from SpaceNews, NASASpaceflight, Spaceflight Now, Space.com, Universe Today and trusted outlets.</div>`;
     body.scrollTop = 0;
     spyOn(body);
