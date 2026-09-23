@@ -1,7 +1,7 @@
 import Globe from 'globe.gl';
 import * as THREE from 'three';
 import { feature } from 'topojson-client';
-import { createSpace } from './space.js?v=56c577c4c7';
+import { createSpace } from './space.js?v=ad06c9ad61';
 
 const CATS = {
   conflict: { label: 'Conflict', color: '#ff4d5e' },
@@ -429,7 +429,10 @@ function renderChrome() {
   $('#play').classList.toggle('on', !!S.play);
   $('#play').textContent = S.play ? '❚❚' : '▶';}
 
+// Stories on screen, by id, so a share button can build that story's link.
+const shown = new Map();
 function card(s) {
+  shown.set(s.id, s);
   const c = CATS[s.c] || CATS.general;
   const others = [...new Set([...(s.p || []), ...(s.x || [])])]
     .filter((k) => k !== S.sel && place(k) && !(k === 'x:SPACE' && S.mode === 'space')).slice(0, 3);
@@ -437,7 +440,7 @@ function card(s) {
   const more = s.ns > s.src.length ? `<span class="more">+${s.ns - s.src.length} more</span>` : '';
   return `<article class="story" data-story="${s.id}" style="--c:${c.color}">
     ${s.img ? `<img class="thumb" src="${esc(s.img)}" alt="" loading="lazy" onerror="this.remove()">` : ''}
-    <div class="s-meta"><span class="tag">${c.label}${s.k === 'college' ? ' · College' : ''}</span><span>${timeLabel(s.ts)}</span>${s.sc >= 14 ? '<span class="major">Major</span>' : ''}${isNew(s) ? '<span class="new">New</span>' : ''}</div>
+    <div class="s-meta"><span class="tag">${c.label}${s.k === 'college' ? ' · College' : ''}</span><span>${timeLabel(s.ts)}</span>${s.sc >= 14 ? '<span class="major">Major</span>' : ''}${isNew(s) ? '<span class="new">New</span>' : ''}<button class="share" data-share="${s.id}" title="Copy a link to this story" aria-label="Copy a link to this story">🔗</button></div>
     <a class="hl" href="${esc(s.u)}" target="_blank" rel="noopener">${esc(s.t)}</a>
     ${s.s ? `<p>${esc(s.s)}</p>` : ''}
     <div class="srcs">${srcs}${more}</div>
@@ -552,13 +555,46 @@ async function renderPanel() {
     ${here.length ? `<h3>Coming up here</h3>${upcomingRows(here)}${mine.length ? '<h3>Stories</h3>' : ''}` : ''}
     ${k === 'c:USA' && !here.length ? '<h3>National news</h3>' : ''}${storyList(mine)}${extra}`;
   body.scrollTop = 0;
-  // Opened from a story link: scroll to that story and flash it.
-  const focused = S.focus && body.querySelector(`[data-story="${S.focus}"]`);
+  applyFocus(body);
+}
+
+// Opened from a story link or an arc: scroll to that story and flash it. A shared link can outlive
+// its story (it drops out of the week, or merges into a bigger one), so say so instead of failing quietly.
+function applyFocus(body) {
+  if (!S.focus) return;
+  const el = body.querySelector(`[data-story="${S.focus}"]`);
+  const fromLink = S.focusFromLink;
   S.focus = null;
-  if (focused) {
-    focused.scrollIntoView({ block: 'center' });
-    focused.classList.add('focus');
+  S.focusFromLink = false;
+  if (el) {
+    el.scrollIntoView({ block: 'center' });
+    el.classList.add('focus');
+  } else if (fromLink) {
+    body.querySelector('.p-head')?.insertAdjacentHTML('beforeend', '<div class="since">The linked story isn’t here anymore. It may have dropped out of the past week or merged into a bigger story.</div>');
   }
+}
+
+// Links open the story's own day and place, so they keep working after "today" moves on.
+function storyUrl(s) {
+  const home = S.sel && s.p.includes(S.sel) ? S.sel : s.p.find((k) => !k.startsWith('x:')) || s.p[0];
+  const h = new URLSearchParams({ day: s.d });
+  if (home === 'x:SPACE') h.set('mode', 'space'); else h.set('place', home);
+  h.set('story', s.id);
+  return `${location.origin}${location.pathname}#${h}`;
+}
+async function shareStory(btn) {
+  const s = shown.get(btn.dataset.share);
+  if (!s) return;
+  const url = storyUrl(s);
+  // Phones get the system share sheet; desktops copy the link.
+  if (navigator.share && matchMedia('(pointer: coarse)').matches) {
+    try { await navigator.share({ title: s.t, url }); } catch {}
+    return;
+  }
+  try { await navigator.clipboard.writeText(url); } catch { window.prompt('Copy this link:', url); return; }
+  btn.classList.add('done');
+  btn.textContent = 'Link copied';
+  setTimeout(() => { btn.classList.remove('done'); btn.textContent = '🔗'; }, 1600);
 }
 
 function naturalEventsSummary() {
@@ -642,8 +678,9 @@ function togglePlay() {
 }
 
 document.addEventListener('click', (e) => {
-  const t = e.target.closest('[data-day],[data-cat],[data-layer],[data-place],[data-action],[data-mode],[data-sp],#play,#keys-btn,#settings-btn,#grip');
+  const t = e.target.closest('[data-day],[data-cat],[data-layer],[data-place],[data-action],[data-mode],[data-sp],[data-share],#play,#keys-btn,#settings-btn,#grip');
   if (!t) return;
+  if (t.dataset.share) return shareStory(t);
   if (t.id === 'play') return togglePlay();
   if (t.id === 'keys-btn') return showKeys(true);
   if (t.id === 'settings-btn') return showSettings(true);
@@ -781,6 +818,7 @@ function readHash() {
   const d = h.get('day');
   if (d && (d === 'week' || S.idx.days.includes(d))) S.day = d;
   const p = h.get('place');
+  if (h.get('story')) { S.focus = h.get('story'); S.focusFromLink = true; }
   if (h.get('mode') === 'space' && !p) return 'x:SPACE';
   return p && place(p) ? p : null;
 }
@@ -810,19 +848,10 @@ async function loadLive() {
       }
     }
   }
-  render({ panel: !S.sel });
+  // Quakes and fires only feed the Earth overview; re-rendering any other panel would just reset its scroll.
+  render({ panel: !S.sel && S.mode === 'earth' });
 }
 
-async function loadUpcoming() {
-  try {
-    const j = await getJSON(`data/upcoming.json?v=${encodeURIComponent(S.idx.generated)}`);
-    S.upcoming = j.events || [];
-    S.upcomingDays = daysUntil(j.to);
-  } catch { return; }
-  buildUpMarkers();
-  // Leave an open place's panel (and its scroll position) alone unless it gains a "Coming up here".
-  render({ panel: !S.sel || S.upcoming.some((e) => e.p.includes(S.sel)) });
-}
 
 // ---------- Analytics ----------
 // Cookie-free page counts via GoatCounter, only when a code is set in index.html.
@@ -835,8 +864,12 @@ if (gcCode && /^[\w-]+$/.test(gcCode)) {
 
 // ---------- Boot ----------
 async function main() {
-  const [idx, wt, ut] = await Promise.all([getJSON('data/index.json', { cache: 'no-cache' }), getJSON(WORLD_TOPO), getJSON(US_TOPO)]);
+  const [idx, wt, ut, up] = await Promise.all([
+    getJSON('data/index.json', { cache: 'no-cache' }), getJSON(WORLD_TOPO), getJSON(US_TOPO),
+    getJSON('data/upcoming.json', { cache: 'no-cache' }).catch(() => null),
+  ]);
   S.idx = idx;
+  if (up) { S.upcoming = up.events || []; S.upcomingDays = daysUntil(up.to); buildUpMarkers(); }
   trackVisit(idx.generated);
   S.day = savedPrefs?.period === 'week' ? 'week' : idx.days.at(-1);
   const countries = feature(wt, wt.objects.countries).features
@@ -850,7 +883,7 @@ async function main() {
   $('#meta').textContent = `Updated ${gen.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, ${gen.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} · ${idx.stories.toLocaleString()} stories`;
 
   initGlobe();
-  SP = createSpace({ world, S, esc, timeLabel, dayLabel, selDays, periodLabel, storyList, loadDay, polys, render, upcomingRows, liveUpcoming });
+  SP = createSpace({ world, S, esc, timeLabel, dayLabel, selDays, periodLabel, storyList, loadDay, polys, render, upcomingRows, liveUpcoming, applyFocus });
   const initial = readHash();
   if (innerWidth < 640) $('#panel').classList.add('collapsed');
   if (initial) select(initial);
@@ -858,7 +891,6 @@ async function main() {
   else render();
   setTimeout(() => $('#loading').classList.add('done'), 600);
   loadLive();
-  loadUpcoming();
   SP.load().then(() => { if (S.mode === 'earth' && !S.sel && !S.hits) renderPanel(); });
 }
 

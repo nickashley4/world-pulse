@@ -1,7 +1,7 @@
 // Space mode: live ISS orbit, launches, aurora forecast, APOD, asteroid flybys, the Sun, space news.
 import * as satellite from 'satellite.js';
 import { geoContains } from 'd3-geo';
-import { createDiscoveries } from './discoveries.js?v=56c577c4c7';
+import { createDiscoveries } from './discoveries.js?v=ad06c9ad61';
 
 const ISS_ALT = 0.066; // ~420 km in globe radii
 const STATUS = {
@@ -40,7 +40,7 @@ function countdown(t) {
 }
 
 export function createSpace(ctx) {
-  const { world, S, esc, timeLabel, dayLabel, selDays, periodLabel, storyList, loadDay, polys, render, upcomingRows, liveUpcoming } = ctx;
+  const { world, S, esc, timeLabel, dayLabel, selDays, periodLabel, storyList, loadDay, polys, render, upcomingRows, liveUpcoming, applyFocus } = ctx;
   let data = null, loading = null, satrec = null, aurora = [], kpNow = null;
   let timer = null, pathTimer = null, follow = false, over = '—', tickN = 0, shownLaunches = [], shownUpcoming = [], issPaths = [];
   const iss = { lat: 0, lng: 0, alt: ISS_ALT, iss: true };
@@ -349,6 +349,7 @@ export function createSpace(ctx) {
       ${sun ? `<h3${neoHtml || skyEvents.length ? '' : ' id="sec-sky"'}>The Sun</h3>${sun}` : ''}
       <div class="foot">Space data: NASA (APOD, NeoWs, news), ESA, NOAA Space Weather Prediction Center (flares, Kp, aurora forecast), The Space Devs Launch Library, NASA Exoplanet Archive (Caltech/IPAC), live ISS orbit from its current TLE via wheretheiss.at. News from SpaceNews, NASASpaceflight, Spaceflight Now, Space.com, Universe Today and trusted outlets.</div>`;
     body.scrollTop = 0;
+    applyFocus(body);
     spyOn(body);
   }
 

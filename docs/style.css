@@ -466,3 +466,10 @@ button.tile:hover { border-color: rgba(199,125,255,.65); }
 .up-marker span { font-size: 11px; }
 .up-marker i { font-style: normal; color: var(--muted); }
 .up-marker:hover { background: rgba(20, 28, 50, .95); }
+
+/* Story link: copies a URL that reopens this story's day and place with the story highlighted. */
+.share { margin-left: auto; padding: 1px 6px; border-radius: 99px; font-size: 11px; line-height: 1.4; color: var(--muted); opacity: .45; }
+.story:hover .share, .share:focus-visible { opacity: 1; }
+.share:hover { background: rgba(255,255,255,.08); color: var(--text); }
+.share.done { opacity: 1; color: #7ff0b0; background: rgba(61,220,132,.14); }
+@media (hover: none) { .share { opacity: .8; } }
