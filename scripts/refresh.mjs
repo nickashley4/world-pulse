@@ -9,6 +9,7 @@ import { loadSpace } from './lib/space.mjs';
 import { loadCollege, OTHER_SPORT_RX } from './lib/college.mjs';
 import { resolveGoogleLinks } from './lib/gnews.mjs';
 import { loadUpcoming } from './lib/upcoming.mjs';
+import { loadGames } from './lib/games.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const OUT = path.join(ROOT, 'docs', 'data');
@@ -73,6 +74,13 @@ const days = Array.from({ length: NDAYS }, (_, i) => etDay(NOW - (NDAYS - 1 - i)
 const daySet = new Set(days);
 const spacePromise = loadSpace({ root: ROOT, fetchJSON, etDay, days });
 const upcomingPromise = loadUpcoming({ root: ROOT, places: G.places, geo: G.geo, today: days.at(-1), log });
+// ESPN venues give the state as "TN" for most leagues but "Tennessee" for MLB.
+const stateKeys = new Map([['District of Columbia', 's:DC'], ...Object.entries(G.places).filter(([, p]) => p.t === 'state').flatMap(([k, p]) => [[p.ab, k], [p.n, k]])]);
+const apRanks = new Map(college.ranked.map((t) => [t.dn, t.ranks]));
+const gamesPromise = loadGames({
+  fetchJSON, today: days.at(-1), log, prevPath: path.join(OUT, 'games.json'),
+  apRank: (sport, dn) => apRanks.get(dn)?.[sport] || null, stateKey: (st) => stateKeys.get(st) || null,
+});
 
 // ---------- 1. Collect ----------
 const jobs = [
@@ -429,6 +437,7 @@ const topSet = new Set(Object.values(top).flat());
 await fs.writeFile(path.join(OUT, 'top.json'), JSON.stringify({ stories: days.flatMap((d) => out.get(d).filter((s) => topSet.has(s.id))) }));
 const space = await spacePromise;
 await fs.writeFile(path.join(OUT, 'space.json'), JSON.stringify(space));
+await fs.writeFile(path.join(OUT, 'games.json'), JSON.stringify(await gamesPromise));
 const upcoming = await upcomingPromise;
 await fs.writeFile(path.join(OUT, 'upcoming.json'), JSON.stringify(upcoming));
 const kinds = {};

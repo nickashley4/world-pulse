@@ -1,7 +1,7 @@
 import Globe from 'globe.gl';
 import * as THREE from 'three';
 import { feature } from 'topojson-client';
-import { createSpace } from './space.js?v=37fe0f99ea';
+import { createSpace } from './space.js?v=a3f5b014bd';
 
 const CATS = {
   conflict: { label: 'Conflict', color: '#ff4d5e' },
@@ -545,6 +545,8 @@ async function renderPanel() {
   const k = S.sel, p = place(k);
   const mine = stories.filter((s) => s.p.includes(k)).sort(byRecency);
   const here = liveUpcoming().filter((e) => e.p.includes(k));
+  const games = k === 'c:USA' ? await loadGames() : null;
+  if (token !== S.panelToken) return;
   const st = S.stats.get(k);
   const type = k === 'c:USA' ? 'National' : p.t === 'state' ? 'U.S. State' : 'Country';
   let extra = '';
@@ -563,8 +565,9 @@ async function renderPanel() {
       <h2>${flag(k)} ${esc(k === 'c:USA' ? 'United States' : p.n)}</h2>
       <div class="sub">${st ? `${st.count} ${st.count === 1 ? 'story' : 'stories'}` : 'Quiet'}</div>
     </div>
-    ${here.length ? `<h3>Coming up here</h3>${upcomingRows(here)}${mine.length ? '<h3>Stories</h3>' : ''}` : ''}
-    ${k === 'c:USA' && !here.length ? '<h3>National news</h3>' : ''}${storyList(mine)}${extra}`;
+    ${here.length ? `<h3>Coming up here</h3>${upcomingRows(here)}` : ''}
+    ${games ? `<h3>Upcoming games</h3><div id="games">${gamesSection()}</div>` : ''}
+    ${k === 'c:USA' ? '<h3>National news</h3>' : here.length && mine.length ? '<h3>Stories</h3>' : ''}${storyList(mine)}${extra}`;
   body.scrollTop = 0;
   applyFocus(body);
 }
@@ -606,6 +609,63 @@ async function shareStory(btn) {
   btn.classList.add('done');
   btn.textContent = 'Link copied';
   setTimeout(() => { btn.classList.remove('done'); btn.textContent = '🔗'; }, 1600);
+}
+
+// ---------- Upcoming games (U.S. national panel) ----------
+// NFL, MLB, NBA, NHL and AP Top 25 college games for the next week, one league at a time. The last
+// league picked is remembered in this browser.
+const LEAGUE_KEY = 'wp.league';
+let gamesPromise;
+function loadGames() {
+  gamesPromise ||= getJSON(`data/games.json?v=${encodeURIComponent(S.idx.generated)}`).then((j) => { S.games = j; return j; }).catch(() => null);
+  return gamesPromise;
+}
+const localDay = (ts) => new Date(ts).toLocaleDateString('en-CA');
+function gameDayLabel(ts) {
+  const d = localDay(ts), today = localDay(Date.now()), tomorrow = localDay(Date.now() + 864e5);
+  return d === today ? 'Today' : d === tomorrow ? 'Tomorrow' : new Date(ts).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+}
+function gamesSection() {
+  const data = S.games;
+  if (!data) return '';
+  // Keep games that started in the last few hours: likely still on, and the file is refreshed only twice a day.
+  const live = data.games.filter((g) => g.ts > Date.now() - 3.5 * 3600e3);
+  const count = (id) => live.filter((g) => g.l === id).length;
+  let saved = null;
+  try { saved = localStorage.getItem(LEAGUE_KEY); } catch {}
+  const pick = [S.league, saved].find((id) => id && count(id)) || data.leagues.find((L) => count(L.id))?.id || data.leagues[0].id;
+  const label = data.leagues.find((L) => L.id === pick)?.label || '';
+  const list = live.filter((g) => g.l === pick);
+  const team = (t) => `${t.r ? `<i class="g-rank">${t.r}</i>` : ''}${esc(t.n)}`;
+  const row = (g) => {
+    const started = g.ts <= Date.now();
+    const time = g.tbd ? 'TBD' : started ? 'Started' : new Date(g.ts).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    return `<div class="game">
+      <span class="g-time">${time}${g.tv ? `<small>${esc(g.tv)}</small>` : ''}</span>
+      <span class="g-body">
+        ${g.note ? `<span class="g-note">${esc(g.note)}</span>` : ''}
+        <a href="${esc(g.u)}" target="_blank" rel="noopener">${team(g.a)} <span class="g-at">${g.neutral ? 'vs' : '@'}</span> ${team(g.h)}</a>
+        <small>${esc([g.v, g.at].filter(Boolean).join(' · '))}${g.st && place(g.st) ? ` <button class="g-place" data-place="${g.st}">${esc(place(g.st).n)} →</button>` : ''}</small>
+      </span></div>`;
+  };
+  let html = '', cur = null;
+  list.forEach((g, i) => {
+    if (i === 10) html += `<details class="up-all"><summary>${list.length - 10} more ${esc(label)} games this week</summary>`;
+    const d = gameDayLabel(g.ts);
+    if (d !== cur) { cur = d; html += `<div class="day-head">${d}</div>`; }
+    html += row(g);
+  });
+  if (list.length > 10) html += '</details>';
+  const tz = new Intl.DateTimeFormat('en-US', { timeZoneName: 'short' }).formatToParts(new Date()).find((p) => p.type === 'timeZoneName')?.value || '';
+  return `<div class="league-tabs" role="tablist" aria-label="League">${data.leagues.map((L) => `<button role="tab" aria-selected="${L.id === pick}" data-league="${L.id}" class="${L.id === pick ? 'on' : ''} ${count(L.id) ? '' : 'zero'}">${esc(L.label)}${count(L.id) ? `<b>${count(L.id)}</b>` : ''}</button>`).join('')}</div>
+    <div class="games-note">Next 7 days · times in ${esc(tz || 'your time zone')}${/^(cfb|cbb)$/.test(pick) ? ' · games with an AP Top 25 team' : ''}</div>
+    ${html || `<div class="empty">No ${esc(label)} regular-season or playoff games in the next 7 days.</div>`}`;
+}
+function pickLeague(id) {
+  S.league = id;
+  try { localStorage.setItem(LEAGUE_KEY, id); } catch {}
+  const el = $('#games');
+  if (el) el.innerHTML = gamesSection();
 }
 
 // ---------- Pinned places ----------
@@ -721,10 +781,11 @@ function togglePlay() {
 }
 
 document.addEventListener('click', (e) => {
-  const t = e.target.closest('[data-day],[data-cat],[data-layer],[data-place],[data-action],[data-mode],[data-sp],[data-share],[data-pin],#play,#keys-btn,#settings-btn,#grip');
+  const t = e.target.closest('[data-day],[data-cat],[data-layer],[data-place],[data-action],[data-mode],[data-sp],[data-share],[data-pin],[data-league],#play,#keys-btn,#settings-btn,#grip');
   if (!t) return;
   if (t.dataset.share) return shareStory(t);
   if (t.dataset.pin) return togglePin(t.dataset.pin);
+  if (t.dataset.league) return pickLeague(t.dataset.league);
   if (t.id === 'play') return togglePlay();
   if (t.id === 'keys-btn') return showKeys(true);
   if (t.id === 'settings-btn') return showSettings(true);
