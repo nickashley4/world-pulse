@@ -1,2 +1,4 @@
 node_modules/
 .DS_Store
+# Raw headline store; carried between refreshes in the Actions cache (see refresh.yml).
+data/items.json

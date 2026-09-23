@@ -1,9 +1,6 @@
 #!/bin/sh
-# Refresh data, commit, and push (GitHub Pages redeploys automatically).
+# Refresh the live site by running the Refresh data workflow on GitHub. The item store (the week's raw
+# headlines) lives in that workflow's cache, so a local refresh would start from a thin or stale store.
 set -e
-cd "$(dirname "$0")/.."
-npm run refresh
-git add docs/data data
-if git diff --cached --quiet; then echo "No data changes."; exit 0; fi
-git commit -m "Refresh data $(date -u +%Y-%m-%dT%H:%MZ)"
-git push
+gh workflow run refresh.yml --ref main
+echo "Started the Refresh data workflow. Follow it with: gh run watch"

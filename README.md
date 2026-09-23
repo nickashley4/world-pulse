@@ -25,9 +25,11 @@ The first screen loads only `index.json` and `top.json` (each day's top stories)
 ## Refresh data
 ```sh
 npm install
-npm run publish-data   # refresh + commit + push
+npm run publish-data   # runs the Refresh data workflow on GitHub (needs the gh CLI)
 ```
 Or run the **Refresh data** workflow from the GitHub Actions tab.
+
+The raw headline store (`data/items.json`, about 12 MB) is kept out of git. The workflow carries it between runs in the Actions cache, since committing it twice a day bloated the history. A local `npm run refresh` builds its own untracked store, so local data starts thinner than the live site's until it has run for a few days.
 
 ## Local
 ```sh
