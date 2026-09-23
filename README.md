@@ -14,7 +14,7 @@ A 3D interactive globe of the past week's important and interesting events — w
 
 Stories are geolocated from headlines, clustered across outlets (with a second tf-idf merge pass for the same story told differently), ranked by how many trusted sources cover them, and softly capped per place per day (3 per country/state, 6 national, 8 space) — heavily covered stories can exceed the cap. Search (`/`) covers the whole week and filters the globe to matching places.
 
-Sports get a tighter cap of their own (1 per country/state per day, 2 national), and templated game previews and box scores are scored down, so a busy game day doesn't bury the news. Stories published since your last visit are marked **New** (tracked in your browser only).
+Sports get a tighter cap of their own (1 per country/state per day, 2 national), and templated game previews and box scores are scored down, so a busy game day doesn't bury the news. Stories published since your last visit are marked **New** (tracked in your browser only). Pin countries or states (☆ Pin on a place, or `P`) to keep them at the top of the overview with their story counts, new-story counts and top headline. Every story has a 🔗 button that copies a link to it; the link names the story's day and place, so it keeps working after the day rolls over.
 
 Google News results are resolved to the publisher's own URL (cached in `data/gnews.json`). Google rate-limits that lookup per IP, so each refresh resolves what it can, headline links first; the rest keep the Google redirect until a later run gets them.
 

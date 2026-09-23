@@ -473,3 +473,17 @@ button.tile:hover { border-color: rgba(199,125,255,.65); }
 .share:hover { background: rgba(255,255,255,.08); color: var(--text); }
 .share.done { opacity: 1; color: #7ff0b0; background: rgba(61,220,132,.14); }
 @media (hover: none) { .share { opacity: .8; } }
+
+/* Pinned places */
+.p-actions { display: flex; gap: 6px; align-items: center; }
+.pin-btn { color: var(--muted); font-size: 12px; padding: 4px 9px; border-radius: 6px; background: rgba(255,255,255,.05); }
+.pin-btn:hover { color: var(--text); background: rgba(255,255,255,.1); }
+.pin-btn.on { color: #ffd27a; background: rgba(255,210,122,.12); box-shadow: inset 0 0 0 1px rgba(255,210,122,.4); }
+.pins { display: grid; gap: 6px; }
+.pin-card { display: block; width: 100%; text-align: left; padding: 9px 12px 10px; border-radius: 12px; background: rgba(255,255,255,.035); border: 1px solid rgba(255,210,122,.22); box-shadow: inset 3px 0 0 -1px var(--c); }
+.pin-card:hover { background: rgba(255,255,255,.07); border-color: rgba(255,210,122,.45); }
+.pc-top { display: flex; align-items: center; gap: 8px; }
+.pc-top b { font: 600 14px/1.3 var(--display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pc-n { margin-left: auto; color: var(--muted); font-size: 11px; white-space: nowrap; }
+.pc-hl { display: block; margin-top: 3px; color: #cdd6e6; font-size: 13px; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.pc-soon { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; }

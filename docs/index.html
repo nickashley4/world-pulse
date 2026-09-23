@@ -22,7 +22,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=ad06c9ad61">
+  <link rel="stylesheet" href="style.css?v=60cc261735">
   <script type="importmap">
   {
     "imports": {
@@ -73,6 +73,7 @@
         <div><dt><kbd>Space</kbd></dt><dd>Play / pause the timeline</dd></div>
         <div><dt><kbd>/</kbd></dt><dd>Search the past week</dd></div>
         <div><dt><kbd>L</kbd></dt><dd>Story links on / off</dd></div>
+        <div><dt><kbd>P</kbd></dt><dd>Pin / unpin the open country or state</dd></div>
         <div><dt><kbd>D</kbd></dt><dd>Discoveries: new planets, black holes and more (Space mode)</dd></div>
         <div><dt><kbd>Esc</kbd></dt><dd>Close a place, clear search, or leave Space mode</dd></div>
         <div><dt><kbd>?</kbd></dt><dd>Show this list</dd></div>
@@ -107,6 +108,9 @@
       <h3>Map layers shown by default</h3>
       <div class="chip-grid" id="set-layers"></div>
 
+      <h3>Pinned places</h3>
+      <div class="chip-grid" id="set-pins"></div>
+
       <div class="settings-foot">
         <button id="set-reset" class="linklike">Reset to defaults</button>
         <span class="settings-note">Saved in this browser only</span>
@@ -128,6 +132,6 @@
 
   <div id="loading" class="loading"><span class="pulse big"></span>Spinning up the planet…</div>
 
-  <script type="module" src="app.js?v=ad06c9ad61"></script>
+  <script type="module" src="app.js?v=60cc261735"></script>
 </body>
 </html>

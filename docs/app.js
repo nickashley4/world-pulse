@@ -1,7 +1,7 @@
 import Globe from 'globe.gl';
 import * as THREE from 'three';
 import { feature } from 'topojson-client';
-import { createSpace } from './space.js?v=ad06c9ad61';
+import { createSpace } from './space.js?v=60cc261735';
 
 const CATS = {
   conflict: { label: 'Conflict', color: '#ff4d5e' },
@@ -46,6 +46,14 @@ function loadPrefs() {
   } catch { return null; }
 }
 function savePrefs(p) { try { localStorage.setItem(PREFS_KEY, JSON.stringify(p)); } catch {} }
+// Pinned places live under their own key so "Reset to defaults" doesn't throw them away.
+const PINS_KEY = 'wp.pins';
+function loadPins() {
+  try {
+    const p = JSON.parse(localStorage.getItem(PINS_KEY));
+    return Array.isArray(p) ? p.filter((k) => typeof k === 'string') : [];
+  } catch { return []; }
+}
 const IMG = 'https://cdn.jsdelivr.net/npm/three-globe@2.45.0/example/img/';
 const WORLD_TOPO = 'https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json';
 const US_TOPO = 'https://cdn.jsdelivr.net/npm/us-atlas@3.0.1/states-10m.json';
@@ -97,7 +105,7 @@ const S = {
   layers: { ...DEFAULT_LAYERS, ...savedPrefs?.layers },
   mode: 'earth',
   cache: new Map(), stats: new Map(), hover: null,
-  quakes: [], events: [], upcoming: [], upMarkers: [], play: null, panelToken: 0,
+  quakes: [], events: [], upcoming: [], upMarkers: [], play: null, panelToken: 0, pins: loadPins(),
   q: '', hits: null, hitIds: null,
 };
 let world, polys, material, SP;
@@ -219,7 +227,7 @@ function initGlobe() {
     .polygonsData(polys)
     .polygonCapColor(capColor)
     .polygonSideColor(() => 'rgba(90,169,255,0.04)')
-    .polygonStrokeColor((f) => (f.key === S.sel ? 'rgba(255,255,255,0.9)' : f.isState ? 'rgba(170,205,255,0.22)' : 'rgba(170,205,255,0.32)'))
+    .polygonStrokeColor((f) => (f.key === S.sel ? 'rgba(255,255,255,0.9)' : S.mode === 'earth' && S.pins.includes(f.key) ? 'rgba(255,210,122,0.8)' : f.isState ? 'rgba(170,205,255,0.22)' : 'rgba(170,205,255,0.32)'))
     .polygonAltitude(polyAlt)
     .polygonsTransitionDuration(250)
     .polygonLabel(polyLabel)
@@ -516,10 +524,13 @@ async function renderPanel() {
     const quakes = S.quakes.filter((q) => selDays().includes(q.day) && q.mag >= 5.5).sort((a, b) => b.mag - a.mag).slice(0, 6);
     const ev = naturalEventsSummary();
     const soon = liveUpcoming();
+    const pinned = await pinnedCards();
+    if (token !== S.panelToken) return;
     body.innerHTML = `
       <div class="p-head"><div class="eyebrow">${periodLabel()}</div><h2>${S.day === 'week' ? 'The week on Earth' : 'What’s happening'}</h2>
       <div class="sub">Click any country, state, or pin. ${S.idx.stories.toLocaleString()} stories this week from ${S.idx.outlets} trusted outlets.</div>
       ${newSince ? `<div class="since"><span class="new">New</span> marks stories since your last visit (${timeLabel(newSince)})</div>` : ''}</div>
+      ${pinned ? `<h3>Your places</h3><div class="pins">${pinned}</div>` : ''}
       ${SP.teaser()}
       <h3>Hotspots</h3>
       <div class="hotspots">${hot.map(([k, st]) => `<button class="place-chip" data-place="${k}" style="--c:${CATS[st.cat].color}"><span class="dot"></span>${flag(k)} ${esc(place(k).n)}</button>`).join('')}</div>
@@ -546,7 +557,7 @@ async function renderPanel() {
     <div class="p-head">
       <div class="p-top">
         ${p.t === 'state' ? '<button class="back" data-place="c:USA">← U.S. National</button>' : '<button class="back" data-action="overview">← Overview</button>'}
-        <button class="close" data-action="overview" aria-label="Close">✕</button>
+        <span class="p-actions">${pinButton(k)}<button class="close" data-action="overview" aria-label="Close">✕</button></span>
       </div>
       <div class="eyebrow">${type} · ${periodLabel()}</div>
       <h2>${flag(k)} ${esc(k === 'c:USA' ? 'United States' : p.n)}</h2>
@@ -595,6 +606,38 @@ async function shareStory(btn) {
   btn.classList.add('done');
   btn.textContent = 'Link copied';
   setTimeout(() => { btn.classList.remove('done'); btn.textContent = '🔗'; }, 1600);
+}
+
+// ---------- Pinned places ----------
+const pinButton = (k) => {
+  const on = S.pins.includes(k);
+  return `<button class="pin-btn ${on ? 'on' : ''}" data-pin="${k}" aria-pressed="${on}" title="${on ? 'Unpin' : 'Pin to the top of the overview'} (P)">${on ? '★ Pinned' : '☆ Pin'}</button>`;
+};
+function togglePin(k) {
+  if (!place(k) || place(k).t === 'space') return;
+  S.pins = S.pins.includes(k) ? S.pins.filter((x) => x !== k) : [...S.pins, k];
+  try { localStorage.setItem(PINS_KEY, JSON.stringify(S.pins)); } catch {}
+  document.querySelectorAll(`[data-pin="${k}"]`).forEach((b) => { b.outerHTML = pinButton(k); });
+  world.polygonStrokeColor(world.polygonStrokeColor());
+}
+// One card per pinned place for the selected period: story count, how many are new since the last
+// visit, and the top headline. Needs the full day files, so they only load for people who pin.
+async function pinnedCards() {
+  const keys = S.pins.filter((k) => place(k));
+  if (!keys.length) return '';
+  const all = (await Promise.all(selDays().map(loadDay))).flat().filter((s) => S.cats.has(s.c));
+  return keys.map((k) => {
+    const mine = dedupe(all.filter((s) => s.p.includes(k)).sort((a, b) => b.sc - a.sc));
+    const fresh = mine.filter(isNew).length;
+    const top = mine[0];
+    const soon = liveUpcoming().find((e) => e.p.includes(k));
+    const c = CATS[top?.c || 'general'].color;
+    return `<button class="pin-card" data-place="${k}" style="--c:${c}">
+      <span class="pc-top"><b>${flag(k)} ${esc(place(k).n)}</b><span class="pc-n">${mine.length ? `${mine.length} ${mine.length === 1 ? 'story' : 'stories'}` : 'Quiet'}</span>${fresh ? `<span class="new">${fresh} new</span>` : ''}</span>
+      ${top ? `<span class="pc-hl">${esc(top.t)}</span>` : ''}
+      ${soon ? `<span class="pc-soon">${upIcon(soon)} ${esc(soon.k === 'election' ? `${soon.t} votes` : soon.t)} · ${whenLabel(soon)}</span>` : ''}
+    </button>`;
+  }).join('');
 }
 
 function naturalEventsSummary() {
@@ -678,9 +721,10 @@ function togglePlay() {
 }
 
 document.addEventListener('click', (e) => {
-  const t = e.target.closest('[data-day],[data-cat],[data-layer],[data-place],[data-action],[data-mode],[data-sp],[data-share],#play,#keys-btn,#settings-btn,#grip');
+  const t = e.target.closest('[data-day],[data-cat],[data-layer],[data-place],[data-action],[data-mode],[data-sp],[data-share],[data-pin],#play,#keys-btn,#settings-btn,#grip');
   if (!t) return;
   if (t.dataset.share) return shareStory(t);
+  if (t.dataset.pin) return togglePin(t.dataset.pin);
   if (t.id === 'play') return togglePlay();
   if (t.id === 'keys-btn') return showKeys(true);
   if (t.id === 'settings-btn') return showSettings(true);
@@ -732,6 +776,10 @@ function renderSettings() {
     <button class="chip ${S.cats.has(k) ? '' : 'off'}" data-set-cat="${k}" style="--c:${c.color}"><span class="sw"></span>${c.label}</button>`).join('');
   $('#set-layers').innerHTML = Object.entries({ ...LAYERS, ...SPACE_LAYERS }).map(([k, l]) => `
     <button class="chip toggle ${S.layers[k] ? '' : 'off'}" data-set-layer="${k}" style="--c:${l.color}"><span class="sw"></span>${l.label}</button>`).join('');
+  const pins = S.pins.filter((k) => place(k));
+  $('#set-pins').innerHTML = pins.length
+    ? pins.map((k) => `<button class="chip" data-unpin="${k}" title="Unpin">${flag(k)} ${esc(place(k).n)}<span class="n">✕</span></button>`).join('')
+    : '<span class="settings-note">Open a country or state and press ☆ Pin (or P) to keep it at the top of the overview.</span>';
 }
 function resetSettings() {
   if (S.play) togglePlay();
@@ -762,6 +810,8 @@ $('#settings').addEventListener('click', (e) => {
     S.layers[layerBtn.dataset.setLayer] = !S.layers[layerBtn.dataset.setLayer];
     render({ panel: false }); persistPrefs(); return renderSettings();
   }
+  const unpin = e.target.closest('[data-unpin]');
+  if (unpin) { togglePin(unpin.dataset.unpin); if (!S.sel) renderPanel(); return renderSettings(); }
   if (e.target.id === 'set-reset') return resetSettings();
 });
 $('#set-autorotate').addEventListener('change', (e) => {
@@ -804,6 +854,7 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === 'Escape' && S.sel) overview();
   else if (e.key === ' ') { e.preventDefault(); togglePlay(); }
   else if (e.key.toLowerCase() === 'l' && S.mode === 'earth') toggleLinks();
+  else if (e.key.toLowerCase() === 'p' && S.sel && !e.metaKey && !e.ctrlKey && !e.altKey) togglePin(S.sel);
 });
 
 function writeHash() {
