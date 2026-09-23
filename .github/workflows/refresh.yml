@@ -32,8 +32,25 @@ jobs:
           node-version: 24
       - if: steps.fresh.outputs.skip != 'true'
         run: npm ci
+      # The item store (data/items.json) carries the week's raw headlines between runs. It lives in
+      # the Actions cache instead of git, because committing ~12 MB twice a day bloats the history.
+      # Cache entries can't be overwritten, so each run saves a new one and the next run restores the
+      # newest by prefix. Entries unused for 7 days are evicted automatically.
+      - name: Restore item store
+        if: steps.fresh.outputs.skip != 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: data/items.json
+          key: items-${{ github.run_id }}
+          restore-keys: items-
       - if: steps.fresh.outputs.skip != 'true'
         run: npm run refresh
+      - name: Save item store
+        if: steps.fresh.outputs.skip != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: data/items.json
+          key: items-${{ github.run_id }}-${{ github.run_attempt }}
       # Link-preview image: re-rendered from the live globe about once a day (Chrome ships on
       # the runner). Best effort: a failure here never blocks the data refresh.
       - name: Re-render link preview
