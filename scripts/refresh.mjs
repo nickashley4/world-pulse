@@ -93,7 +93,7 @@ function toItem(raw, job) {
     title = title.endsWith(suf) ? title.slice(0, -suf.length) : title.replace(/\s+[-|]\s+[^-|]{2,60}$/, '');
   }
   const ts = Date.parse(raw.date);
-  if (!ts || ts > NOW + 3600e3 || ts < NOW - 8 * 864e5) return null;
+  if (!ts || ts > NOW + 3600e3 || etDay(ts) < days[0]) return null;
   const trust = trustOf(d, job.q, G.outletStates);
   if (!trust || isBlockedTitle(title)) return null;
   return {
@@ -133,13 +133,15 @@ await pool(jobs.map((job) => async () => {
 }), 6);
 log(`Fetched: ${fresh.length} trusted items (${failed} feeds failed)`);
 
-// Merge with persisted items so curated feeds (which only hold ~1-2 days) keep a full week.
+// Merge with persisted items so curated feeds (which only hold ~1-2 days) keep a full week. Only the
+// week the site shows is kept: anything older can never reach a day file, and this file is committed
+// on every refresh, so each extra day it holds is history the repo carries forever.
 let prev = [];
 try { prev = JSON.parse(await fs.readFile(RAW, 'utf8')); } catch {}
 const norm = (t) => t.toLowerCase().replace(/[^\p{L}\p{N} ]/gu, '').replace(/\s+/g, ' ').trim();
 const seen = new Map();
 for (const it of [...fresh, ...prev]) {
-  if (it.ts < NOW - 8 * 864e5 || isBlockedTitle(it.t)) continue; // re-filter saved items as rules evolve
+  if (etDay(it.ts) < days[0] || isBlockedTitle(it.t)) continue; // re-filter saved items as rules evolve
   const k = `${norm(it.t)}|${it.d}`;
   const old = seen.get(k);
   if (!old) seen.set(k, it);
