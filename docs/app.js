@@ -1,7 +1,7 @@
 import Globe from 'globe.gl';
 import * as THREE from 'three';
 import { feature } from 'topojson-client';
-import { createSpace } from './space.js?v=bae6a858e7';
+import { createSpace } from './space.js?v=8ff26a93ca';
 
 const CATS = {
   conflict: { label: 'Conflict', color: '#ff4d5e' },
@@ -17,11 +17,11 @@ const CATS = {
 };
 const LAYERS = {
   night: { label: 'Day / night', color: '#7a8cff' },
-  glow: { label: 'Hotspot glow', color: '#ff4d5e' },
-  arcs: { label: 'Story links', color: '#5aa9ff' },
-  quakes: { label: 'Earthquakes', color: '#ffc850' },
-  events: { label: 'Fires · storms · volcanoes', color: '#ff7a2f' },
-  upcoming: { label: 'Coming up', color: '#ffd27a' },
+  glow: { label: 'Hotspot rings', color: '#ff4d5e', tip: 'Pulsing rings where conflict or disaster coverage is heaviest' },
+  arcs: { label: 'Story arcs', color: '#5aa9ff', tip: 'Arcs join places covered by the same story (L)' },
+  quakes: { label: 'Earthquakes', color: '#ffc850', tip: 'USGS earthquakes of magnitude 4.5 and up' },
+  events: { label: 'Fires · storms · volcanoes', color: '#ff7a2f', tip: 'Active natural events from NASA EONET' },
+  upcoming: { label: 'Coming up', color: '#ffd27a', tip: 'Flags for elections, finals, eclipses and meteor showers in the next 30 days' },
 };
 // Scheduled events from data/upcoming.json. Eclipse icons depend on which body goes dark.
 const UPCOMING = {
@@ -34,7 +34,7 @@ const upIcon = (e) => (e.k === 'eclipse' && /lunar/.test(e.t) ? '🌕' : UPCOMIN
 const SPACE_LAYERS = {
   iss: { label: 'ISS live orbit', color: '#e6d2ff' },
   launches: { label: 'Launches', color: '#c77dff' },
-  aurora: { label: 'Aurora forecast', color: '#50ffaa' },
+  aurora: { label: 'Aurora forecast', color: '#50ffaa', tip: 'NOAA’s 30-minute aurora forecast' },
   night: { label: 'Day / night', color: '#7a8cff' },
 };
 // Settings are remembered per browser (no account/login — see Settings panel).
@@ -61,6 +61,28 @@ const EONET = 'https://eonet.gsfc.nasa.gov/api/v3/events?days=8&status=all&categ
 const USGS = 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_week.geojson';
 
 const $ = (s, el = document) => el.querySelector(s);
+// Drawn icons for the interface chrome, so they match across platforms (emoji stay for flags and content).
+const ICON = {
+  play: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z"/></svg>',
+  pause: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4.5h4.5v15H6zM13.5 4.5H18v15h-4.5z"/></svg>',
+  close: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  link: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>',
+  chev: '<svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>',
+};
+// One polite status line for screen readers. The panel itself isn't a live region: it re-renders
+// whole, and Space mode retimes countdowns every second.
+let lastAnnounce = '';
+function announce(msg) {
+  if (!msg || msg === lastAnnounce) return;
+  lastAnnounce = msg;
+  const el = $('#sr-status');
+  el.textContent = '';
+  setTimeout(() => { el.textContent = msg; }, 60);
+}
+// While a dialog is open, everything else is inert: no tabbing out, no reading the page behind it.
+function inertOthers(modal, on) {
+  for (const el of document.body.children) if (el !== modal && el.tagName !== 'SCRIPT') el.inert = on;
+}
 const esc = (s = '') => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const dayFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' });
 const etDay = (ms) => dayFmt.format(new Date(ms));
@@ -107,6 +129,9 @@ const S = {
   cache: new Map(), stats: new Map(), hover: null,
   quakes: [], events: [], upcoming: [], upMarkers: [], play: null, panelToken: 0, pins: loadPins(),
   q: '', hits: null, hitIds: null,
+  loaded: new Set(), failedDays: new Set(), liveFailed: [],
+  // Which rail lists are open. Categories start open where there's room for them.
+  ui: { cats: innerWidth >= 640, layers: false },
 };
 let world, polys, material, SP;
 let autoRotateEnabled = savedPrefs?.autoRotate ?? !reduceMotion;
@@ -120,9 +145,14 @@ const periodLabel = () => (S.day === 'week' ? 'Past 7 days' : S.day === S.idx.da
 const timeLabel = (ts) => new Date(ts).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 
 function loadDay(d) {
-  if (!S.cache.has(d)) S.cache.set(d, getJSON(`data/day-${d}.json?v=${encodeURIComponent(S.idx.generated)}`).then((j) => j.stories).catch(() => []));
+  if (!S.cache.has(d)) {
+    S.cache.set(d, getJSON(`data/day-${d}.json?v=${encodeURIComponent(S.idx.generated)}`).then((j) => j.stories)
+      .catch(() => { S.failedDays.add(d); return []; })
+      .finally(() => S.loaded.add(d)));
+  }
   return S.cache.get(d);
 }
+const daysLoaded = (days) => days.every((d) => S.loaded.has(d));
 
 // Full top stories for every day, so the overview renders without fetching all seven day files.
 let topPromise;
@@ -263,6 +293,7 @@ function initGlobe() {
     .htmlElement((d) => (d.iss ? SP.issElement() : upMarkerElement(d)));
 
   world.pointOfView({ lat: 28, lng: -35, altitude: homeAlt() });
+  $('#globe canvas')?.setAttribute('aria-hidden', 'true');
   const ctr = world.controls();
   ctr.autoRotate = autoRotateEnabled;
   ctr.autoRotateSpeed = 0.35;
@@ -386,6 +417,9 @@ function upMarkerElement(m) {
   el.style.setProperty('--c', (UPCOMING[e.k] || UPCOMING.election).color);
   el.innerHTML = `<span>${upIcon(e)}</span><b>${dayLabel(e.d, { month: 'short', day: 'numeric' })}</b>${m.events.length > 1 ? `<i>+${m.events.length - 1}</i>` : ''}`;
   el.title = m.events.map((x) => `${upIcon(x)} ${x.k === 'election' ? `${x.t} votes` : x.t} · ${dayLabel(x.d, { month: 'short', day: 'numeric' })}${x.s ? ` — ${x.s}` : ''}`).join('\n');
+  el.setAttribute('aria-label', el.title);
+  // Out of the tab order: 3D depth-sorting gives these a random order, and every event is also a row in the panel.
+  el.tabIndex = -1;
   el.onclick = () => (place(m.key) ? select(m.key) : window.open(e.u, '_blank', 'noopener'));
   return el;
 }
@@ -420,22 +454,46 @@ function renderChrome() {
   const totals = idx.days.map((d) => Object.values(idx.stats[d] || {}).reduce((s, cats) => s + Object.values(cats).reduce((a, [n]) => a + n, 0), 0));
   const max = Math.max(1, ...totals);
   $('#days').innerHTML = idx.days.map((d, i) => `
-    <button class="day ${S.day === d ? 'on' : ''}" data-day="${d}" title="${dayLabel(d)} — ${totals[i]} stories">
-      <small>${i === idx.days.length - 1 ? 'Today' : dayLabel(d, { weekday: 'short' })}</small><b>${dayLabel(d, { day: 'numeric' })}</b>
+    <button class="day ${S.day === d ? 'on' : ''}" data-day="${d}" aria-pressed="${S.day === d}" aria-label="${i === idx.days.length - 1 ? 'Today, ' : ''}${dayLabel(d)}, ${totals[i]} stories" title="${dayLabel(d)} — ${totals[i]} stories">
+      <small aria-hidden="true">${i === idx.days.length - 1 ? 'Today' : dayLabel(d, { weekday: 'short' })}</small><b aria-hidden="true">${dayLabel(d, { day: 'numeric' })}</b>
       <span class="bar"><i style="width:${(totals[i] / max) * 100}%"></i></span>
-    </button>`).join('') + `<button class="day ${S.day === 'week' ? 'on' : ''}" data-day="week"><small>All</small><b>Week</b></button>`;
+    </button>`).join('') + `<button class="day ${S.day === 'week' ? 'on' : ''}" data-day="week" aria-pressed="${S.day === 'week'}" aria-label="The whole past week"><small aria-hidden="true">All</small><b aria-hidden="true">Week</b></button>`;
 
   const catCounts = {};
   for (const d of selDays()) for (const cats of Object.values(idx.stats[d] || {})) for (const [c, [n]] of Object.entries(cats)) catCounts[c] = (catCounts[c] || 0) + n;
-  $('#cats').innerHTML = '<h4>Categories</h4>' + Object.entries(CATS).map(([k, c]) => `
-    <button class="chip ${S.cats.has(k) ? '' : 'off'}" data-cat="${k}" style="--c:${c.color}" title="Click to toggle · double-click to show only this">
+  const allCats = S.cats.size === Object.keys(CATS).length;
+  $('#cats').innerHTML = (allCats ? '' : '<button class="rail-all" data-action="all-cats">Show all categories</button>') + Object.entries(CATS).map(([k, c]) => `
+    <button class="chip ${S.cats.has(k) ? '' : 'off'}" data-cat="${k}" aria-pressed="${S.cats.has(k)}" style="--c:${c.color}" title="Click to toggle · double-click to show only this">
       <span class="sw"></span>${c.label}<span class="n">${catCounts[k] || 0}</span></button>`).join('');
-  document.querySelectorAll('.modes [data-mode]').forEach((b) => b.classList.toggle('on', b.dataset.mode === S.mode));
-  $('#layers').innerHTML = '<h4>Layers</h4>' + Object.entries(S.mode === 'space' ? SPACE_LAYERS : LAYERS).map(([k, l]) => `
-    <button class="chip toggle ${S.layers[k] ? '' : 'off'}" data-layer="${k}" style="--c:${l.color}"><span class="sw"></span>${l.label}</button>`).join('');
+  $('#cats-state').textContent = allCats ? '' : `${S.cats.size} of ${Object.keys(CATS).length}`;
+  document.querySelectorAll('.modes [data-mode]').forEach((b) => { b.classList.toggle('on', b.dataset.mode === S.mode); b.setAttribute('aria-pressed', b.dataset.mode === S.mode); });
+  const layerSet = S.mode === 'space' ? SPACE_LAYERS : LAYERS;
+  $('#layers').innerHTML = Object.entries(layerSet).map(([k, l]) => `
+    <button class="chip toggle ${S.layers[k] ? '' : 'off'}" data-layer="${k}" aria-pressed="${!!S.layers[k]}" style="--c:${l.color}"${l.tip ? ` title="${esc(l.tip)}"` : ''}><span class="sw"></span>${l.label}</button>`).join('');
+  const layersOn = Object.keys(layerSet).filter((k) => S.layers[k]).length;
+  $('#layers-state').textContent = layersOn === Object.keys(layerSet).length ? '' : `${layersOn} of ${Object.keys(layerSet).length}`;
+  syncRail();
   $('#days .day.on')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-  $('#play').classList.toggle('on', !!S.play);
-  $('#play').textContent = S.play ? '❚❚' : '▶';}
+  const play = $('#play');
+  play.classList.toggle('on', !!S.play);
+  play.innerHTML = S.play ? ICON.pause : ICON.play;
+  play.setAttribute('aria-label', S.play ? 'Pause the week' : 'Play the week');
+  play.setAttribute('aria-pressed', !!S.play);
+}
+// Rail lists open and close like disclosures. On phones they drop down over the globe, so only one is open at a time.
+function syncRail() {
+  for (const k of ['cats', 'layers']) {
+    $(`#${k}`).hidden = !S.ui[k];
+    $(`#${k}-btn`).setAttribute('aria-expanded', S.ui[k]);
+  }
+}
+function toggleRail(k) {
+  S.ui[k] = !S.ui[k];
+  if (narrow() && S.ui[k]) for (const o of ['cats', 'layers']) if (o !== k) S.ui[o] = false;
+  syncRail();
+  // On a short window the rail scrolls; bring a list that just opened into view.
+  if (S.ui[k] && !narrow()) $(`#${k}`).lastElementChild?.scrollIntoView({ block: 'nearest' });
+}
 
 // Stories on screen, by id, so a share button can build that story's link.
 const shown = new Map();
@@ -448,7 +506,7 @@ function card(s) {
   const more = s.ns > s.src.length ? `<span class="more">+${s.ns - s.src.length} more</span>` : '';
   return `<article class="story" data-story="${s.id}" style="--c:${c.color}">
     ${s.img ? `<img class="thumb" src="${esc(s.img)}" alt="" loading="lazy" onerror="this.remove()">` : ''}
-    <div class="s-meta"><span class="tag">${c.label}${s.k === 'college' ? ' · College' : ''}</span><span>${timeLabel(s.ts)}</span>${s.sc >= 14 ? '<span class="major">Major</span>' : ''}${isNew(s) ? '<span class="new">New</span>' : ''}<button class="share" data-share="${s.id}" title="Copy a link to this story" aria-label="Copy a link to this story">🔗</button></div>
+    <div class="s-meta"><span class="tag">${c.label}${s.k === 'college' ? ' · College' : ''}</span><span>${timeLabel(s.ts)}</span>${s.sc >= 14 ? '<span class="major">Major</span>' : ''}${isNew(s) ? '<span class="new">New</span>' : ''}<button class="share" data-share="${s.id}" title="Copy a link to this story" aria-label="Copy a link to this story">${ICON.link}</button></div>
     <a class="hl" href="${esc(s.u)}" target="_blank" rel="noopener">${esc(s.t)}</a>
     ${s.s ? `<p>${esc(s.s)}</p>` : ''}
     <div class="srcs">${srcs}${more}</div>
@@ -456,9 +514,14 @@ function card(s) {
   </article>`;
 }
 
+const filtered = () => S.cats.size < Object.keys(CATS).length;
 function storyList(stories, group = S.day === 'week') {
   stories = dedupe(stories);
-  if (!stories.length) return '<div class="empty">No major stories from trusted outlets for this period and filter.</div>';
+  if (!stories.length) {
+    return filtered()
+      ? '<div class="empty">No major stories in the categories you’ve picked. <button class="linklike" data-action="all-cats">Show all categories</button></div>'
+      : `<div class="empty">No major stories from trusted outlets ${S.day === 'week' ? 'this week' : 'on this day'}.</div>`;
+  }
   if (!group) return stories.map(card).join('');
   let html = '', cur = null;
   for (const s of stories) {
@@ -468,25 +531,35 @@ function storyList(stories, group = S.day === 'week') {
   return html;
 }
 
+const SEARCH_CAP = 60;
 function searchView() {
   const raw = $('#q').value.trim();
   const hits = S.hits.filter((s) => S.cats.has(s.c));
   const shown = dedupe(hits);
-  const places = Object.entries(S.idx.places).filter(([, p]) => p.n.toLowerCase().includes(S.q)).slice(0, 8);
+  const hidden = dedupe(S.hits).length - shown.length;
+  const places = Object.entries(S.idx.places).filter(([, p]) => p.t !== 'space' && p.n.toLowerCase().includes(S.q)).slice(0, 8);
+  const notes = [
+    hidden > 0 && `${hidden} more ${hidden === 1 ? 'story matches' : 'stories match'} in categories you’ve hidden. <button class="linklike" data-action="all-cats">Show all categories</button>`,
+    shown.length > SEARCH_CAP && `Showing the ${SEARCH_CAP} most recent. Add a word to narrow it down.`,
+  ].filter(Boolean);
+  announce(`Search: ${shown.length} ${shown.length === 1 ? 'story' : 'stories'}${places.length ? ` and ${places.length} ${places.length === 1 ? 'place' : 'places'}` : ''} for ${raw}`);
   return `
     <div class="p-head">
-      <div class="p-top"><span class="eyebrow">Search · past 7 days</span><button class="close" data-action="clear-search" aria-label="Clear search">✕</button></div>
+      <div class="p-top"><span class="sub">Search · past 7 days</span><button class="close" data-action="clear-search" aria-label="Clear search">${ICON.close}</button></div>
       <h2>“${esc(raw)}”</h2>
-      <div class="sub">${shown.length} ${shown.length === 1 ? 'story' : 'stories'}</div>
+      <div class="sub">${shown.length} ${shown.length === 1 ? 'story' : 'stories'}${places.length ? ` · ${places.length} ${places.length === 1 ? 'place' : 'places'}` : ''}</div>
     </div>
+    ${notes.map((n) => `<div class="note-line">${n}</div>`).join('')}
     ${places.length ? `<h3>Places</h3><div class="hotspots">${places.map(([k, p]) => `<button class="place-chip" data-place="${k}" style="--c:${CATS[S.stats.get(k)?.cat || 'general'].color}"><span class="dot"></span>${flag(k)} ${esc(p.n)}</button>`).join('')}</div>` : ''}
-    <h3>Stories</h3>${storyList(shown.slice(0, 60), true)}`;
+    <h3>Stories</h3>${shown.length || hidden ? storyList(shown.slice(0, SEARCH_CAP), true) : `<div class="empty">Nothing in the past week matches “${esc(raw)}”. Try a place, an outlet, or fewer words.</div>`}`;
 }
 
 async function runSearch() {
   const q = $('#q').value.trim().toLowerCase();
   S.q = q;
   if (q.length < 2) { clearSearch(); return render(); }
+  // The first search loads the whole week, which can take a moment on a slow connection.
+  if (!daysLoaded(S.idx.days)) $('#panel-body').innerHTML = '<div class="loading-row">Searching the past week…</div>';
   const all = (await Promise.all(S.idx.days.map(loadDay))).flat();
   if (S.q !== q) return;
   const words = q.split(/\s+/);
@@ -512,6 +585,12 @@ async function renderPanel() {
   const body = $('#panel-body');
   if (S.hits) { body.innerHTML = searchView(); body.scrollTop = 0; return; }
   const days = new Set(selDays());
+  // Opening a place fetches its full day files; show where you're going while they load.
+  if (S.sel && !daysLoaded(selDays())) {
+    const p = place(S.sel);
+    body.innerHTML = `<div class="p-head"><div class="p-top"><span></span><button class="close" data-action="overview" aria-label="Close">${ICON.close}</button></div>
+      <h2>${flag(S.sel)} ${esc(S.sel === 'c:USA' ? 'United States' : p.n)}</h2></div><div class="loading-row">Loading stories…</div>`;
+  }
   const stories = (S.sel ? (await Promise.all(selDays().map(loadDay))).flat() : (await loadTop()).filter((s) => days.has(s.d)))
     .filter((s) => S.cats.has(s.c));
   if (token !== S.panelToken) return;
@@ -526,18 +605,23 @@ async function renderPanel() {
     const soon = liveUpcoming();
     const pinned = await pinnedCards();
     if (token !== S.panelToken) return;
+    const heading = S.day === 'week' ? 'The week on Earth' : 'What’s happening';
+    announce(`${heading}, ${periodLabel()}`);
     body.innerHTML = `
-      <div class="p-head"><div class="eyebrow">${periodLabel()}</div><h2>${S.day === 'week' ? 'The week on Earth' : 'What’s happening'}</h2>
-      <div class="sub">Click any country, state, or pin. ${S.idx.stories.toLocaleString()} stories this week from ${S.idx.outlets} trusted outlets.</div>
-      ${newSince ? `<div class="since"><span class="new">New</span> marks stories since your last visit (${timeLabel(newSince)})</div>` : ''}</div>
+      <div class="p-head"><h2>${heading}</h2>
+      <div class="sub"><b>${periodLabel()}</b> · ${S.idx.stories.toLocaleString()} stories this week from ${S.idx.outlets} trusted outlets. Click any country, state, or pin.</div>
+      ${newSince ? `<div class="since"><span class="new">New</span> marks stories since your last visit (${timeLabel(newSince)})</div>` : ''}
+      ${legend()}</div>
       ${pinned ? `<h3>Your places</h3><div class="pins">${pinned}</div>` : ''}
       ${SP.teaser()}
       <h3>Hotspots</h3>
       <div class="hotspots">${hot.map(([k, st]) => `<button class="place-chip" data-place="${k}" style="--c:${CATS[st.cat].color}"><span class="dot"></span>${flag(k)} ${esc(place(k).n)}</button>`).join('')}</div>
+      ${azList()}
       ${soon.length ? `<h3>Coming up</h3>${upcomingRows(soon.slice(0, 3))}${soon.length > 3 ? `<details class="up-all"><summary>${soon.length - 3} more in the next ${S.upcomingDays} days</summary>${upcomingRows(soon.slice(3))}</details>` : ''}` : ''}
       <h3>Top stories</h3>${storyList(top, false)}
       ${quakes.length ? `<h3>Significant earthquakes</h3>${quakes.map((q) => `<a class="list-row" href="${esc(q.url)}" target="_blank" rel="noopener"><span class="mag">M${q.mag.toFixed(1)}</span><span>${esc(q.place)}<small>${timeLabel(q.time)} · USGS</small></span></a>`).join('')}` : ''}
       ${ev ? `<h3>Natural events</h3>${ev}` : ''}
+      ${S.liveFailed.length ? `<div class="note-line">${S.liveFailed.join(' and ')} couldn’t be reached just now, so ${S.liveFailed.length === 1 ? 'that layer is' : 'those layers are'} empty. They’ll load on your next visit.</div>` : ''}
       <div class="foot">Sources: AP, Reuters, BBC, NPR, PBS, The Guardian, Al Jazeera, DW, France 24, UN News, ESPN, NASA, and vetted state outlets. Stories are clustered across outlets and ranked by how many trusted sources cover them. Live layers from USGS and NASA EONET. College sports limited to AP Top 25 football and men’s basketball (via ESPN). Coming up: Wikipedia’s election and sports calendars and NASA eclipse predictions.<br>Updated ${new Date(S.idx.generated).toLocaleString()}.</div>`;
     return;
   }
@@ -545,32 +629,60 @@ async function renderPanel() {
   const k = S.sel, p = place(k);
   const mine = stories.filter((s) => s.p.includes(k)).sort(byRecency);
   const here = liveUpcoming().filter((e) => e.p.includes(k));
-  const games = k === 'c:USA' || p.t === 'state' ? await loadGames() : null;
+  const sports = k === 'c:USA' || p.t === 'state';
+  const games = sports ? await loadGames() : null;
   const gamesHtml = games ? gamesSection(k) : '';
   if (token !== S.panelToken) return;
   const st = S.stats.get(k);
-  const type = k === 'c:USA' ? 'National' : p.t === 'state' ? 'U.S. State' : 'Country';
-  let extra = '';
+  const type = k === 'c:USA' ? 'National' : p.t === 'state' ? 'U.S. state' : 'Country';
+  const name = k === 'c:USA' ? 'United States' : p.n;
+  const count = st ? `${st.count} ${st.count === 1 ? 'story' : 'stories'}` : 'Quiet';
+  // National: the states grid sits one click away at the top, news comes next, and the week's games go last.
+  let states = '';
   if (k === 'c:USA') {
-    const states = Object.entries(S.idx.places).filter(([, v]) => v.t === 'state')
+    const list = Object.entries(S.idx.places).filter(([, v]) => v.t === 'state')
       .map(([sk, v]) => [sk, v, S.stats.get(sk)?.count || 0]).sort((a, b) => b[2] - a[2] || a[1].n.localeCompare(b[1].n));
-    extra = `<h3>States</h3><div class="states">${states.map(([sk, v, n]) => `<button data-place="${sk}" class="${n ? '' : 'zero'}" title="${esc(v.n)}">${v.ab}<b>${n || ''}</b></button>`).join('')}</div>`;
+    states = `<details class="states-box"><summary>Browse the 50 states ›</summary><div class="states">${list.map(([sk, v, n]) => `<button data-place="${sk}" class="${n ? '' : 'zero'}" title="${esc(v.n)}" aria-label="${esc(v.n)}, ${n || 'no'} ${n === 1 ? 'story' : 'stories'}">${v.ab}<b>${n || ''}</b></button>`).join('')}</div></details>`;
   }
+  const gamesBlock = gamesHtml ? `<h3>Upcoming games</h3><div id="games">${gamesHtml}</div>`
+    : sports && !games ? '<h3>Upcoming games</h3><div class="empty">Game schedules couldn’t be loaded just now.</div>' : '';
+  announce(`${name}, ${count}, ${periodLabel()}`);
   body.innerHTML = `
     <div class="p-head">
       <div class="p-top">
         ${p.t === 'state' ? '<button class="back" data-place="c:USA">← U.S. National</button>' : '<button class="back" data-action="overview">← Overview</button>'}
-        <span class="p-actions">${pinButton(k)}<button class="close" data-action="overview" aria-label="Close">✕</button></span>
+        <span class="p-actions">${pinButton(k)}<button class="close" data-action="overview" aria-label="Close">${ICON.close}</button></span>
       </div>
-      <div class="eyebrow">${type} · ${periodLabel()}</div>
-      <h2>${flag(k)} ${esc(k === 'c:USA' ? 'United States' : p.n)}</h2>
-      <div class="sub">${st ? `${st.count} ${st.count === 1 ? 'story' : 'stories'}` : 'Quiet'}</div>
+      <h2>${flag(k)} ${esc(name)}</h2>
+      <div class="sub">${type} · <b>${periodLabel()}</b> · ${count}</div>
+      ${states}
     </div>
     ${here.length ? `<h3>Coming up here</h3>${upcomingRows(here)}` : ''}
-    ${gamesHtml ? `<h3>Upcoming games</h3><div id="games">${gamesHtml}</div>` : ''}
-    ${k === 'c:USA' ? '<h3>National news</h3>' : (here.length || gamesHtml) && mine.length ? '<h3>Stories</h3>' : ''}${storyList(mine)}${extra}`;
+    ${k === 'c:USA' ? '<h3>National news</h3>' : here.length || gamesBlock ? '<h3>Stories</h3>' : ''}${storyList(mine)}
+    ${gamesBlock}`;
   body.scrollTop = 0;
   applyFocus(body);
+}
+
+function legend() {
+  return `<details class="legend"><summary>How to read the globe ${ICON.chev}</summary><ul>
+    <li><span class="lg lg-fill"></span>A country’s colour is its biggest story’s category; stronger colour means more coverage</li>
+    <li><span class="lg lg-pin"></span>Pin height shows how big the top story there is</li>
+    <li><span class="lg lg-ring"></span>Pulsing rings mark conflict and disaster hotspots</li>
+    <li><span class="lg lg-quake"></span>Yellow rings are earthquakes of magnitude 4.5 and up</li>
+    <li><span class="lg lg-arc"></span>An arc joins two places covered by the same story</li>
+    <li><span class="lg lg-flag">🗳️</span>Flags mark elections, finals and sky events coming up</li>
+  </ul></details>`;
+}
+
+// Every country A to Z, so any place can be opened without pointing at the globe.
+function azList() {
+  const list = Object.entries(S.idx.places).filter(([, p]) => p.t === 'country')
+    .map(([k, p]) => [k, p.n, S.stats.get(k)?.count || 0])
+    .sort((a, b) => a[1].localeCompare(b[1]));
+  if (!list.length) return '';
+  return `<details class="up-all az"><summary>All ${list.length} countries, A to Z</summary><div class="az-grid">${list.map(([k, n, c]) => `
+    <button data-place="${k}" class="${c ? '' : 'zero'}" aria-label="${esc(n)}, ${c || 'no'} ${c === 1 ? 'story' : 'stories'}"><span>${flag(k)} ${esc(n)}</span>${c ? `<b>${c}</b>` : ''}</button>`).join('')}</div></details>`;
 }
 
 // Opened from a story link or an arc: scroll to that story and flash it. A shared link can outlive
@@ -608,8 +720,9 @@ async function shareStory(btn) {
   }
   try { await navigator.clipboard.writeText(url); } catch { window.prompt('Copy this link:', url); return; }
   btn.classList.add('done');
-  btn.textContent = 'Link copied';
-  setTimeout(() => { btn.classList.remove('done'); btn.textContent = '🔗'; }, 1600);
+  btn.innerHTML = `${ICON.link} Link copied`;
+  announce('Link copied');
+  setTimeout(() => { btn.classList.remove('done'); btn.innerHTML = ICON.link; }, 1600);
 }
 
 // ---------- Upcoming games (U.S. national and state panels) ----------
@@ -638,7 +751,8 @@ function gamesSection(k) {
   if (!leagues.length) return '';
   let saved = null;
   try { saved = localStorage.getItem(LEAGUE_KEY); } catch {}
-  const want = S.league ?? saved;
+  // A new visitor sees one line of league counts; the schedule opens when they pick a league.
+  const want = S.league ?? saved ?? 'none';
   const collapsed = want === 'none';
   const pick = collapsed ? null : [want].find((id) => id && count(id)) || leagues.find((L) => count(L.id))?.id || leagues[0].id;
   const label = data.leagues.find((L) => L.id === pick)?.label || '';
@@ -664,8 +778,8 @@ function gamesSection(k) {
   });
   if (list.length > 10) html += '</details>';
   const tz = new Intl.DateTimeFormat('en-US', { timeZoneName: 'short' }).formatToParts(new Date()).find((p) => p.type === 'timeZoneName')?.value || '';
-  const tabs = `<div class="league-tabs" role="tablist" aria-label="League">${leagues.map((L) => `<button role="tab" aria-selected="${L.id === pick}" aria-expanded="${L.id === pick}" data-league="${L.id}" title="${L.id === pick ? 'Click again to collapse' : `Show ${esc(L.label)} games`}" class="${L.id === pick ? 'on' : ''} ${count(L.id) ? '' : 'zero'}">${esc(L.label)}${count(L.id) ? `<b>${count(L.id)}</b>` : ''}</button>`).join('')}</div>`;
-  if (collapsed) return `${tabs}<div class="games-note">${live.length} ${live.length === 1 ? 'game' : 'games'} in the next 7 days · pick a league to show them</div>`;
+  const tabs = `<div class="league-tabs" role="group" aria-label="League">${leagues.map((L) => `<button aria-pressed="${L.id === pick}" aria-expanded="${L.id === pick}" data-league="${L.id}" title="${L.id === pick ? 'Click again to collapse' : `Show ${esc(L.label)} games`}" class="${L.id === pick ? 'on' : ''} ${count(L.id) ? '' : 'zero'}">${esc(L.label)}${count(L.id) ? `<b>${count(L.id)}</b>` : ''}</button>`).join('')}</div>`;
+  if (collapsed) return `${tabs}<div class="games-note">${live.length} ${live.length === 1 ? 'game' : 'games'} in the next 7 days. Pick a league to see its schedule.</div>`;
   return `${tabs}
     <div class="games-note">Next 7 days · times in ${esc(tz || 'your time zone')}${/^(cfb|cbb)$/.test(pick) ? ' · games with an AP Top 25 team' : ''}</div>
     ${html || `<div class="empty">No ${esc(label)} regular-season or playoff games in the next 7 days.</div>`}`;
@@ -734,7 +848,7 @@ function select(key, { fly = true } = {}) {
     const lat = key === 'c:USA' ? 38 : p.lat;
     world.pointOfView({ lat: lat - (narrow() ? 8 * alt : 0), lng: p.lng + (innerWidth > 900 ? 12 * alt : 0), altitude: alt * (narrow() ? 1.3 : 1) }, motionMs(1200));
   }
-  $('#panel').classList.remove('collapsed');
+  if (sheetState() === 0) setSheet(1);
   render();
 }
 
@@ -762,7 +876,7 @@ function setMode(mode) {
     S.sel = null;
     world.controls().autoRotate = autoRotateEnabled;
     world.pointOfView({ altitude: homeAlt(true) }, motionMs(1200));
-    $('#panel').classList.remove('collapsed');
+    if (sheetState() === 0) setSheet(1);
     render();
     SP.enter();
   } else {
@@ -791,8 +905,13 @@ function togglePlay() {
 }
 
 document.addEventListener('click', (e) => {
-  const t = e.target.closest('[data-day],[data-cat],[data-layer],[data-place],[data-action],[data-mode],[data-sp],[data-share],[data-pin],[data-league],#play,#keys-btn,#settings-btn,#grip');
+  // Tapping outside an open rail list on a phone closes it.
+  if (narrow() && !e.target.closest('.rail-box') && (S.ui.cats || S.ui.layers)) { S.ui.cats = S.ui.layers = false; syncRail(); }
+  const t = e.target.closest('[data-day],[data-cat],[data-layer],[data-place],[data-action],[data-mode],[data-sp],[data-share],[data-pin],[data-league],#play,#keys-btn,#settings-btn,#grip,#cats-btn,#layers-btn');
   if (!t) return;
+  if (t.dataset.action === 'retry') return location.reload();
+  if (t.id === 'cats-btn') return toggleRail('cats');
+  if (t.id === 'layers-btn') return toggleRail('layers');
   if (t.dataset.share) return shareStory(t);
   if (t.dataset.pin) return togglePin(t.dataset.pin);
   if (t.dataset.league) return pickLeague(t);
@@ -801,7 +920,7 @@ document.addEventListener('click', (e) => {
   if (t.id === 'settings-btn') return showSettings(true);
   if (!S.idx) return; // data still loading
   if (t.dataset.layer === 'arcs') return toggleLinks();
-  if (t.id === 'grip') return $('#panel').classList.toggle('collapsed');
+  if (t.id === 'grip') return;
   if (t.dataset.day) { if (S.play) togglePlay(); return setDay(t.dataset.day); }
   if (t.dataset.cat) {
     const c = t.dataset.cat;
@@ -815,10 +934,43 @@ document.addEventListener('click', (e) => {
   if (t.dataset.place) return select(t.dataset.place);
   if (t.dataset.action === 'overview') return overview();
   if (t.dataset.action === 'clear-search') { clearSearch(); return render(); }
+  if (t.dataset.action === 'all-cats') { S.cats = new Set(Object.keys(CATS)); return render(); }
 });
+
+// ---------- Phone bottom sheet ----------
+// Three heights: peek (collapsed), half, and full. Tap the grip to step through them, or swipe it.
+function sheetState() { const p = $('#panel'); return p.classList.contains('collapsed') ? 0 : p.classList.contains('full') ? 2 : 1; }
+function setSheet(i) {
+  const p = $('#panel');
+  p.classList.toggle('collapsed', i === 0);
+  p.classList.toggle('full', i === 2);
+  const g = $('#grip');
+  g.setAttribute('aria-expanded', i > 0);
+  g.setAttribute('aria-label', i === 2 ? 'Collapse panel' : 'Expand panel');
+}
+{
+  let y0 = null;
+  const grip = $('#grip');
+  grip.addEventListener('pointerdown', (e) => { y0 = e.clientY; grip.setPointerCapture(e.pointerId); });
+  grip.addEventListener('pointerup', (e) => {
+    if (y0 == null) return;
+    const dy = e.clientY - y0;
+    y0 = null;
+    const i = sheetState();
+    if (dy < -24) setSheet(Math.min(2, i + 1));
+    else if (dy > 24) setSheet(Math.max(0, i - 1));
+    else setSheet((i + 1) % 3);
+  });
+  grip.addEventListener('pointercancel', () => { y0 = null; });
+  // Keyboard users press Enter/Space on the grip; pointer events don't fire for that.
+  grip.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSheet((sheetState() + 1) % 3); } });
+}
+// The phone keyboard covers half the screen, so searching opens the sheet all the way.
+$('#q').addEventListener('focus', () => { if (narrow()) setSheet(2); });
 
 function showKeys(open) {
   $('#keys').hidden = !open;
+  inertOthers($('#keys'), open);
   if (open) $('#keys .keys-close').focus();
   else $('#keys-btn').focus();
 }
@@ -835,21 +987,23 @@ function persistPrefs() {
 function showSettings(open) {
   if (open) renderSettings();
   $('#settings').hidden = !open;
+  inertOthers($('#settings'), open);
   if (open) $('#settings .settings-close').focus();
   else $('#settings-btn').focus();
 }
 function renderSettings() {
-  $('#set-view').querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.val === S.mode));
+  const mark = (b, on) => { b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); };
+  $('#set-view').querySelectorAll('button').forEach((b) => mark(b, b.dataset.val === S.mode));
   const isToday = S.day === S.idx.days.at(-1);
-  $('#set-period').querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.val === 'week' ? S.day === 'week' : isToday));
+  $('#set-period').querySelectorAll('button').forEach((b) => mark(b, b.dataset.val === 'week' ? S.day === 'week' : isToday));
   $('#set-autorotate').checked = autoRotateEnabled;
   $('#set-cats').innerHTML = Object.entries(CATS).map(([k, c]) => `
-    <button class="chip ${S.cats.has(k) ? '' : 'off'}" data-set-cat="${k}" style="--c:${c.color}"><span class="sw"></span>${c.label}</button>`).join('');
+    <button class="chip ${S.cats.has(k) ? '' : 'off'}" data-set-cat="${k}" aria-pressed="${S.cats.has(k)}" style="--c:${c.color}"><span class="sw"></span>${c.label}</button>`).join('');
   $('#set-layers').innerHTML = Object.entries({ ...LAYERS, ...SPACE_LAYERS }).map(([k, l]) => `
-    <button class="chip toggle ${S.layers[k] ? '' : 'off'}" data-set-layer="${k}" style="--c:${l.color}"><span class="sw"></span>${l.label}</button>`).join('');
+    <button class="chip toggle ${S.layers[k] ? '' : 'off'}" data-set-layer="${k}" aria-pressed="${!!S.layers[k]}" style="--c:${l.color}"><span class="sw"></span>${l.label}</button>`).join('');
   const pins = S.pins.filter((k) => place(k));
   $('#set-pins').innerHTML = pins.length
-    ? pins.map((k) => `<button class="chip" data-unpin="${k}" title="Unpin">${flag(k)} ${esc(place(k).n)}<span class="n">✕</span></button>`).join('')
+    ? pins.map((k) => `<button class="chip" data-unpin="${k}" title="Unpin" aria-label="Unpin ${esc(place(k).n)}">${flag(k)} ${esc(place(k).n)}<span class="n">${ICON.close}</span></button>`).join('')
     : '<span class="settings-note">Open a country or state and press ☆ Pin (or P) to keep it at the top of the overview.</span>';
 }
 function resetSettings() {
@@ -894,11 +1048,26 @@ $('#set-autorotate').addEventListener('change', (e) => {
 let searchTimer;
 $('#q').addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(runSearch, 180); });
 
+// Keys that a focused control needs for itself: Space and Enter press it, arrows move within it.
+const OWN_KEYS = new Set([' ', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']);
+function stepStory(dir) {
+  const list = [...$('#panel-body').querySelectorAll('.story .hl')];
+  if (!list.length) return;
+  const cur = list.indexOf(document.activeElement);
+  const next = list[cur < 0 ? (dir > 0 ? 0 : list.length - 1) : Math.max(0, Math.min(list.length - 1, cur + dir))];
+  next.focus({ preventScroll: true });
+  next.closest('.story').scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' });
+}
 document.addEventListener('keydown', (e) => {
-  if (e.target.closest?.('input,textarea')) {
-    if (e.key === 'Escape') { clearSearch(); e.target.blur(); render(); }
+  if (e.target.closest?.('input,textarea,select')) {
+    // First Esc leaves the box and keeps the results; a second Esc clears the search.
+    if (e.key === 'Escape') { e.target.blur(); if (!S.hits && e.target.id === 'q') { clearSearch(); render(); } }
     return;
   }
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  // The day buttons keep the arrow keys, since stepping through days is what they're for.
+  const ownArrows = e.key.startsWith('Arrow') && e.target.closest?.('.timeline');
+  if (OWN_KEYS.has(e.key) && !ownArrows && e.target.closest?.('button,a,summary,[role=button],[tabindex]')) return;
   // "?" is Shift + / on US keyboards; some keyboards/browsers report key "/" with shiftKey instead.
   const isHelpKey = e.key === '?' || (e.shiftKey && (e.key === '/' || e.code === 'Slash'));
   if (!$('#settings').hidden) {
@@ -916,16 +1085,20 @@ document.addEventListener('keydown', (e) => {
   if (isHelpKey) { e.preventDefault(); showKeys(true); return; }
   if (e.key === '/') { e.preventDefault(); $('#q').focus(); return; }
   if (!S.idx) return; // data still loading
-  if (e.key.toLowerCase() === 'd' && S.mode === 'space' && !e.metaKey && !e.ctrlKey && !e.altKey) { SP.handle('disc'); return; }
+  if (e.key.toLowerCase() === 'd' && S.mode === 'space') { SP.handle('disc'); return; }
   const days = [...S.idx.days, 'week'];
   const i = days.indexOf(S.day);
   if (e.key === 'ArrowLeft' && i > 0) setDay(days[i - 1]);
   else if (e.key === 'ArrowRight' && i < days.length - 1) setDay(days[i + 1]);
+  else if (e.key === 'Escape' && narrow() && (S.ui.cats || S.ui.layers)) { S.ui.cats = S.ui.layers = false; syncRail(); }
+  else if (e.key === 'Escape' && S.hits) { clearSearch(); render(); }
   else if (e.key === 'Escape' && S.mode === 'space') setMode('earth');
   else if (e.key === 'Escape' && S.sel) overview();
   else if (e.key === ' ') { e.preventDefault(); togglePlay(); }
+  else if (e.key.toLowerCase() === 'j') stepStory(1);
+  else if (e.key.toLowerCase() === 'k') stepStory(-1);
   else if (e.key.toLowerCase() === 'l' && S.mode === 'earth') toggleLinks();
-  else if (e.key.toLowerCase() === 'p' && S.sel && !e.metaKey && !e.ctrlKey && !e.altKey) togglePin(S.sel);
+  else if (e.key.toLowerCase() === 'p' && S.sel) togglePin(S.sel);
 });
 
 function writeHash() {
@@ -948,6 +1121,7 @@ function readHash() {
 // ---------- Live layers ----------
 async function loadLive() {
   const [q, ev] = await Promise.allSettled([getJSON(USGS), getJSON(EONET)]);
+  S.liveFailed = [q.status === 'rejected' && 'Earthquakes', ev.status === 'rejected' && 'Fires, storms and volcanoes'].filter(Boolean);
   if (q.status === 'fulfilled') {
     S.quakes = q.value.features.map((f) => ({
       mag: f.properties.mag, place: f.properties.place, time: f.properties.time, url: f.properties.url,
@@ -978,7 +1152,8 @@ async function loadLive() {
 // ---------- Analytics ----------
 // Cookie-free page counts via GoatCounter, only when a code is set in index.html.
 const gcCode = document.querySelector('meta[name=goatcounter]')?.content.trim();
-if (gcCode && /^[\w-]+$/.test(gcCode)) {
+const localHost = /^(localhost|127\.|0\.0\.0\.0|\[::1\])/.test(location.hostname);
+if (gcCode && /^[\w-]+$/.test(gcCode) && !localHost) {
   const sc = Object.assign(document.createElement('script'), { async: true, src: 'https://gc.zgo.at/count.js' });
   sc.dataset.goatcounter = `https://${gcCode}.goatcounter.com/count`;
   document.head.append(sc);
@@ -1005,9 +1180,9 @@ async function main() {
   $('#meta').textContent = `Updated ${gen.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, ${gen.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} · ${idx.stories.toLocaleString()} stories`;
 
   initGlobe();
-  SP = createSpace({ world, S, esc, timeLabel, dayLabel, selDays, periodLabel, storyList, loadDay, polys, render, upcomingRows, liveUpcoming, applyFocus });
+  SP = createSpace({ world, S, esc, timeLabel, dayLabel, selDays, periodLabel, storyList, loadDay, polys, render, upcomingRows, liveUpcoming, applyFocus, announce, inertOthers, ICON });
   const initial = readHash();
-  if (innerWidth < 640) $('#panel').classList.add('collapsed');
+  if (narrow()) setSheet(0);
   if (initial) select(initial);
   else if (savedPrefs?.view === 'space') setMode('space');
   else render();
@@ -1018,5 +1193,6 @@ async function main() {
 
 main().catch((err) => {
   console.error(err);
-  $('#loading').textContent = 'Could not load data. Try refreshing.';
+  $('#loading').innerHTML = '<span>Couldn’t load this week’s news. Check your connection, then</span><button class="retry" data-action="retry">Try again</button>';
+  $('#loading .retry').focus();
 });

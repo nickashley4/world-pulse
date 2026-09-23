@@ -116,7 +116,7 @@ function tagStories(all) {
   return out;
 }
 
-export function createDiscoveries({ S, esc, dayLabel, loadDay, storyList, getData }) {
+export function createDiscoveries({ S, esc, dayLabel, loadDay, storyList, inertOthers, getData }) {
   const modal = document.getElementById('disc');
   const tabsEl = document.getElementById('disc-tabs');
   const body = document.getElementById('disc-body');
@@ -235,9 +235,8 @@ export function createDiscoveries({ S, esc, dayLabel, loadDay, storyList, getDat
       <button class="back" data-sp="disc:back">← All new worlds</button>
       <div class="pl-hero">
         <span class="orb-slot big">${orb(p, 100, 150)}</span>
-        <div><span class="eyebrow">${esc(p.kind)}${p.climate ? ` · ${p.climate}` : ''}</span>
-          <h2>${esc(p.name)}</h2>
-          <div class="sub">Orbits the star ${esc(p.host)}${p.spec ? ` · spectral type ${esc(p.spec)}` : ''}</div>${badges(p)}</div>
+        <div><h2>${esc(p.name)}</h2>
+          <div class="sub">${esc(p.kind)}${p.climate ? ` · ${p.climate}` : ''} · orbits the star ${esc(p.host)}${p.spec ? ` · spectral type ${esc(p.spec)}` : ''}</div>${badges(p)}</div>
       </div>
       <p class="pl-blurb">${esc(blurbParts(p).join(' '))}</p>
       <div class="pl-stats">${stats(p)}</div>
@@ -271,6 +270,7 @@ export function createDiscoveries({ S, esc, dayLabel, loadDay, storyList, getDat
     if (opening) {
       lastFocus = document.activeElement;
       modal.hidden = false;
+      inertOthers(modal, true);
       document.body.classList.add('disc-open');
     }
     if (!news) {
@@ -286,6 +286,7 @@ export function createDiscoveries({ S, esc, dayLabel, loadDay, storyList, getDat
   function close() {
     if (modal.hidden) return;
     modal.hidden = true;
+    inertOthers(modal, false);
     open = null;
     document.body.classList.remove('disc-open');
     lastFocus?.focus?.({ preventScroll: true });
@@ -319,11 +320,11 @@ export function createDiscoveries({ S, esc, dayLabel, loadDay, storyList, getDat
     try { sessionStorage.setItem('wp.discToast', '1'); } catch {}
     const n = other ? count(other) : 0;
     const bits = [fresh.length && `${fresh.length} new planet${fresh.length === 1 ? '' : 's'} this week`,
-      other && `${n} ${TABS[other].noun} stor${n === 1 ? 'y' : 'ies'}`].filter(Boolean);
+      other && `${n} ${n === 1 ? 'story' : 'stories'} on ${TABS[other].label.toLowerCase()}`].filter(Boolean);
     toastEl.innerHTML = `<button class="toast-main" data-sp="disc:tab:${fresh.length ? 'planets' : other}">
         <span class="orbs">${fresh.length ? fresh.slice(0, 3).map((p) => orb(p, 20, 30)).join('') : TABS[other].icon}</span>
         <span><b>New in deep space</b><small>${esc(bits.join(' · '))}</small></span><span class="go">Explore →</span></button>
-      <button class="toast-x" data-sp="disc:dismiss" aria-label="Dismiss">✕</button>`;
+      <button class="toast-x" data-sp="disc:dismiss" aria-label="Dismiss"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>`;
     toastEl.hidden = false;
     requestAnimationFrame(() => requestAnimationFrame(() => toastEl.classList.add('in')));
     clearTimeout(toastTimer);

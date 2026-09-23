@@ -21,8 +21,8 @@
   <meta name="goatcounter" content="worldpulse">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=bae6a858e7">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=8ff26a93ca">
   <script type="importmap">
   {
     "imports": {
@@ -36,69 +36,79 @@
   </script>
 </head>
 <body>
-  <div id="globe"></div>
+  <div id="globe" role="region" aria-label="Globe of the week's news. Open places from the panel's place list or with search."></div>
 
-  <header class="brand glass">
-    <div class="logo"><span class="pulse"></span>World Pulse<button id="settings-btn" class="keys-btn" aria-label="Settings" title="Settings">⚙</button><button id="keys-btn" class="keys-btn" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)">?</button></div>
-    <div class="meta" id="meta">Loading…</div>
-  </header>
+  <div class="topbar">
+    <header class="brand glass">
+      <div class="logo"><span class="pulse" aria-hidden="true"></span><h1>World Pulse</h1><button id="settings-btn" class="keys-btn" aria-label="Settings" title="Settings"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button><button id="keys-btn" class="keys-btn" aria-label="Help and keyboard shortcuts" title="Help and keyboard shortcuts (?)">?</button></div>
+      <div class="meta" id="meta">Loading…</div>
+    </header>
 
-  <div class="modes glass" role="tablist" aria-label="View">
-    <button data-mode="earth" class="on" role="tab">🌍 Earth</button>
-    <button data-mode="space" role="tab">🚀 Space</button>
+    <div class="modes glass" role="group" aria-label="View">
+      <button data-mode="earth" class="on" aria-pressed="true"><span aria-hidden="true">🌍</span><span class="ml"> Earth</span></button>
+      <button data-mode="space" aria-pressed="false"><span aria-hidden="true">🚀</span><span class="ml"> Space</span></button>
+    </div>
   </div>
 
   <nav class="timeline glass" aria-label="Day filter">
-    <button id="play" class="play" aria-label="Play timeline" title="Play the week (space)">▶</button>
-    <div id="days" class="days"></div>  </nav>
+    <button id="play" class="play" aria-label="Play the week" title="Play the week (Space)"></button>
+    <div id="days" class="days" role="group" aria-label="Day"></div>
+  </nav>
 
   <div class="rail">
-    <button id="us-nav" class="us-nav glass" data-place="c:USA" title="National U.S. news (states are on the map)">🇺🇸 U.S. National <b id="us-count"></b></button>
-    <button id="disc-nav" class="us-nav disc-nav glass" data-sp="disc" title="New planets, black holes and other deep-space discoveries (D)">🪐 Discoveries <b id="disc-count"></b></button>
-    <div class="cats glass" id="cats" aria-label="Categories"></div>
-    <div class="layers glass" id="layers" aria-label="Map layers"></div>
+    <button id="us-nav" class="us-nav glass" data-place="c:USA" title="National U.S. news (states are on the map)"><span aria-hidden="true">🇺🇸</span> <span class="us-l">U.S. National</span> <b id="us-count"></b></button>
+    <button id="disc-nav" class="us-nav disc-nav glass" data-sp="disc" title="New planets, black holes and other deep-space discoveries (D)"><span aria-hidden="true">🪐</span> Discoveries <b id="disc-count"></b></button>
+    <div class="rail-box cats-box glass">
+      <button class="rail-toggle" id="cats-btn" aria-expanded="true" aria-controls="cats">Categories<span class="rt-state" id="cats-state"></span><svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+      <div class="rail-list" id="cats" role="group" aria-label="Categories"></div>
+    </div>
+    <div class="rail-box layers-box glass">
+      <button class="rail-toggle" id="layers-btn" aria-expanded="false" aria-controls="layers">Layers<span class="rt-state" id="layers-state"></span><svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+      <div class="rail-list" id="layers" role="group" aria-label="Map layers" hidden></div>
+    </div>
   </div>
 
-  <aside id="panel" class="panel glass" aria-live="polite">
-    <button class="grip" id="grip" aria-label="Toggle panel"></button>
+  <aside id="panel" class="panel glass" aria-label="Stories">
+    <button class="grip" id="grip" aria-label="Expand panel" aria-expanded="false"></button>
     <div class="search"><input id="q" type="search" placeholder="Search stories, places, outlets…" aria-label="Search the past week" autocomplete="off" spellcheck="false"><kbd>/</kbd></div>
     <div id="panel-body" class="panel-body"></div>
   </aside>
 
   <div id="keys" class="keys-modal" role="dialog" aria-modal="true" aria-labelledby="keys-title" hidden>
     <div class="keys-card glass">
-      <div class="keys-top"><h2 id="keys-title">Keyboard shortcuts</h2><button class="close keys-close" aria-label="Close">✕</button></div>
+      <div class="keys-top"><h2 id="keys-title">Keyboard shortcuts</h2><button class="close keys-close" aria-label="Close"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
       <dl class="keys-list">
         <div><dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Previous / next day (→ past today opens Week)</dd></div>
         <div><dt><kbd>Space</kbd></dt><dd>Play / pause the timeline</dd></div>
-        <div><dt><kbd>/</kbd></dt><dd>Search the past week</dd></div>
-        <div><dt><kbd>L</kbd></dt><dd>Story links on / off</dd></div>
+        <div><dt><kbd>J</kbd> <kbd>K</kbd></dt><dd>Next / previous story in the panel</dd></div>
+        <div><dt><kbd>/</kbd></dt><dd>Search the past week, including places by name</dd></div>
+        <div><dt><kbd>L</kbd></dt><dd>Story arcs on / off</dd></div>
         <div><dt><kbd>P</kbd></dt><dd>Pin / unpin the open country or state</dd></div>
         <div><dt><kbd>D</kbd></dt><dd>Discoveries: new planets, black holes and more (Space mode)</dd></div>
-        <div><dt><kbd>Esc</kbd></dt><dd>Close a place, clear search, or leave Space mode</dd></div>
+        <div><dt><kbd>Esc</kbd></dt><dd>Leave the search box, then clear the search; close a place; leave Space mode</dd></div>
         <div><dt><kbd>?</kbd></dt><dd>Show this list</dd></div>
       </dl>
       <h3>Mouse tips</h3>
       <ul class="keys-tips">
         <li>Click open water to return to the overview</li>
-        <li>Double-click a category to show only that category</li>
-        <li>Hover a story link to see its headline; click to open it</li>
+        <li>Double-click a category to show only that category; “Show all” brings the rest back</li>
+        <li>Hover a story arc to see its headline; click to open it</li>
       </ul>
     </div>
   </div>
 
   <div id="settings" class="keys-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
     <div class="keys-card settings-card glass">
-      <div class="keys-top"><h2 id="settings-title">Settings</h2><button class="close settings-close" aria-label="Close">✕</button></div>
+      <div class="keys-top"><h2 id="settings-title">Settings</h2><button class="close settings-close" aria-label="Close"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
 
       <h3>Startup</h3>
       <div class="settings-row">
-        <label>Default view</label>
-        <div class="seg" id="set-view"><button data-val="earth">🌍 Earth</button><button data-val="space">🚀 Space</button></div>
+        <span class="settings-label">Default view</span>
+        <div class="seg" id="set-view" role="group" aria-label="Default view"><button data-val="earth">🌍 Earth</button><button data-val="space">🚀 Space</button></div>
       </div>
       <div class="settings-row">
-        <label>Default period</label>
-        <div class="seg" id="set-period"><button data-val="today">Today</button><button data-val="week">Past week</button></div>
+        <span class="settings-label">Default period</span>
+        <div class="seg" id="set-period" role="group" aria-label="Default period"><button data-val="today">Today</button><button data-val="week">Past week</button></div>
       </div>
       <label class="settings-check"><input type="checkbox" id="set-autorotate">Auto-rotate the globe when idle</label>
 
@@ -121,17 +131,18 @@
   <div id="disc" class="disc-modal" role="dialog" aria-modal="true" aria-labelledby="disc-title" hidden>
     <div class="disc-card glass">
       <div class="disc-top">
-        <div><span class="eyebrow">Deep space · newly confirmed &amp; reported</span><h2 id="disc-title">Discoveries</h2></div>
-        <button class="close disc-close" data-sp="disc:close" aria-label="Close discoveries">✕ Close</button>
+        <div><h2 id="disc-title">Discoveries</h2><p class="disc-sub">Newly confirmed planets and the week’s deep-space news</p></div>
+        <button class="close disc-close" data-sp="disc:close" aria-label="Close discoveries"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
       </div>
-      <div id="disc-tabs" class="disc-tabs" aria-label="Discovery types"></div>
+      <div id="disc-tabs" class="disc-tabs" role="group" aria-label="Discovery types"></div>
       <div id="disc-body" class="disc-body"></div>
     </div>
   </div>
   <div id="disc-toast" class="disc-toast glass" role="status" hidden></div>
 
-  <div id="loading" class="loading"><span class="pulse big"></span>Spinning up the planet…</div>
+  <div id="sr-status" class="sr-only" role="status" aria-live="polite"></div>
+  <div id="loading" class="loading" role="status"><span class="pulse big" aria-hidden="true"></span><span id="loading-msg">Spinning up the planet…</span></div>
 
-  <script type="module" src="app.js?v=bae6a858e7"></script>
+  <script type="module" src="app.js?v=8ff26a93ca"></script>
 </body>
 </html>

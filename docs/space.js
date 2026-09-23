@@ -1,7 +1,7 @@
 // Space mode: live ISS orbit, launches, aurora forecast, APOD, asteroid flybys, the Sun, space news.
 import * as satellite from 'satellite.js';
 import { geoContains } from 'd3-geo';
-import { createDiscoveries } from './discoveries.js?v=bae6a858e7';
+import { createDiscoveries } from './discoveries.js?v=8ff26a93ca';
 
 const ISS_ALT = 0.066; // ~420 km in globe radii
 const STATUS = {
@@ -13,6 +13,7 @@ const flareVal = (c) => ({ A: 1e-8, B: 1e-7, C: 1e-6, M: 1e-5, X: 1e-4 }[c?.[0]]
 const fmt = (n) => Math.round(n).toLocaleString('en-US');
 const apodLink = (d) => `https://apod.nasa.gov/apod/ap${d.slice(2).replace(/-/g, '')}.html`;
 const kpText = (kp) => (kp >= 5 ? `G${Math.min(5, Math.floor(kp) - 4)} geomagnetic storm` : kp >= 4 ? 'active' : 'quiet');
+const KP_TIP = 'Kp is a 0–9 scale of geomagnetic activity. At 5 and up there’s a geomagnetic storm, and auroras reach lower latitudes.';
 
 function moonPhase(date = new Date()) {
   const syn = 29.530588853;
@@ -40,11 +41,11 @@ function countdown(t) {
 }
 
 export function createSpace(ctx) {
-  const { world, S, esc, timeLabel, dayLabel, selDays, periodLabel, storyList, loadDay, polys, render, upcomingRows, liveUpcoming, applyFocus } = ctx;
+  const { world, S, esc, timeLabel, dayLabel, selDays, periodLabel, storyList, loadDay, polys, render, upcomingRows, liveUpcoming, applyFocus, announce, inertOthers } = ctx;
   let data = null, loading = null, satrec = null, aurora = [], kpNow = null;
   let timer = null, pathTimer = null, follow = false, over = '—', tickN = 0, shownLaunches = [], shownUpcoming = [], issPaths = [];
   const iss = { lat: 0, lng: 0, alt: ISS_ALT, iss: true };
-  const disc = createDiscoveries({ S, esc, dayLabel, loadDay, storyList, getData: () => data });
+  const disc = createDiscoveries({ S, esc, dayLabel, loadDay, storyList, inertOthers, getData: () => data });
 
   world
     .hexBinPointLat('lat').hexBinPointLng('lng').hexBinPointWeight('p').hexBinResolution(3).hexMargin(0.12).hexBinMerge(true)
@@ -143,7 +144,10 @@ export function createSpace(ctx) {
     const el = document.createElement('button');
     el.className = 'iss-marker';
     el.title = 'International Space Station — click to follow';
-    el.innerHTML = '<span class="iss-core"></span><span class="iss-tag">ISS</span>';
+    el.setAttribute('aria-label', 'Follow the International Space Station');
+    // The panel's "Follow the ISS" button is the keyboard route; this marker stays out of the tab order.
+    el.tabIndex = -1;
+    el.innerHTML = '<span class="iss-core" aria-hidden="true"></span><span class="iss-tag" aria-hidden="true">ISS</span>';
     el.onclick = () => handle('follow');
     return el;
   }
@@ -282,7 +286,7 @@ export function createSpace(ctx) {
             <span>${esc(next.rocket)}</span></button>`
           : '<div class="tile wide"><small>Next launch</small><b>—</b><span>Nothing scheduled</span></div>'}
         <div class="tile"><small>In space</small><b>${d.crew?.count ?? '—'}</b><span>people</span></div>
-        <div class="tile"><small>Aurora Kp</small><b>${Number.isFinite(kpNow) ? kpNow.toFixed(1) : '—'}</b>
+        <div class="tile" title="${KP_TIP}"><small>Aurora (Kp)</small><b>${Number.isFinite(kpNow) ? kpNow.toFixed(1) : '—'}</b>
           <span>${Number.isFinite(kpNow) ? kpText(kpNow) : 'unknown'}</span></div>
       </div>`;
 
@@ -323,7 +327,7 @@ export function createSpace(ctx) {
         <div class="flare-top"><span class="flare-cls cls-${strongest.c[0]}">${esc(strongest.c)}</span>
           <span>Strongest solar flare<small>${timeLabel(strongest.ts)} · ${fl.reduce((s, f) => s + f.count, 0)} flares total</small></span></div>
         ${big.length ? `<div class="flare-chips">${big.map((f) => `<span title="${timeLabel(f.ts)}">${esc(f.c)}</span>`).join('')}</div>` : ''}
-        <div class="sub">Max Kp ${kpMax.toFixed(1)} — ${kpText(kpMax)}${kpMax >= 5 ? ' · auroras reached lower latitudes' : ''}</div>
+        <div class="sub" title="${KP_TIP}">Geomagnetic activity peaked at Kp ${kpMax.toFixed(1)} (${kpText(kpMax)}, on a 0–9 scale)${kpMax >= 5 ? ' · auroras reached lower latitudes' : ''}</div>
       </div>` : '';
 
     const skyEvents = liveUpcoming().filter((e) => e.k === 'eclipse' || e.k === 'meteor');
@@ -331,11 +335,12 @@ export function createSpace(ctx) {
     const nav = [[strip && 'disc', 'Discoveries'], ['iss', 'ISS'], ['launch', 'Launches'], ['news', 'News'], [(skyEvents.length || neoHtml || sun) && 'sky', 'Sky']]
       .filter(([k]) => k).map(([k, label]) => `<button data-sp="go:${k}" data-sec="${k}">${label}</button>`).join('');
 
+    announce(`Space mode, ${periodLabel()}`);
     body.innerHTML = `
       <div class="p-head space-head">
-        <div class="p-top"><span class="eyebrow">🚀 Space · ${periodLabel()}</span><button class="close" data-mode="earth">🌍 Back to Earth</button></div>
+        <div class="p-top"><span></span><button class="close" data-mode="earth">← Back to Earth</button></div>
         <h2>Above the Planet</h2>
-        <div class="sub">${moon.icon} ${moon.name}, ${Math.round(moon.illum * 100)}% lit</div>
+        <div class="sub"><b>${periodLabel()}</b> · ${moon.name}, ${Math.round(moon.illum * 100)}% lit</div>
       </div>
       ${tiles}
       <nav class="sec-nav" aria-label="Jump to section">${nav}</nav>
@@ -358,10 +363,12 @@ export function createSpace(ctx) {
     const days = new Set(selDays());
     const n = (data.launches || []).filter((l) => days.has(l.day)).length;
     const latest = data.apod?.[Object.keys(data.apod || {}).sort().at(-1)];
+    // Lead with today's picture; a quiet launch week shouldn't open with "0 launches".
+    const bits = [n && `${n} launch${n === 1 ? '' : 'es'}`, 'live ISS', 'aurora forecast'].filter(Boolean).join(' · ');
     return `<button class="space-teaser" data-mode="space">
       ${latest ? `<img src="${esc(latest.img)}" alt="">` : ''}
-      <span><span class="eyebrow">🚀 Space mode</span><b>${n} launch${n === 1 ? '' : 'es'} · live ISS · aurora forecast</b>
-      <small>${latest ? esc(latest.title) : 'See what’s happening above the planet'}</small></span></button>`;
+      <span><span class="st-kick">Space mode →</span><b>${latest ? esc(latest.title) : 'What’s happening above the planet'}</b>
+      <small>${bits}</small></span></button>`;
   }
 
   return { load, enter, exit, renderGlobe, renderPanel, handle, issElement, teaser, disc };
