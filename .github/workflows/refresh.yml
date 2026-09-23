@@ -17,7 +17,11 @@ jobs:
   refresh:
     runs-on: ubuntu-latest
     steps:
+      # Full history: the link-preview step dates og.jpg by its last commit, and in a shallow clone
+      # every file looks like it was committed in the one commit present, so it never re-rendered.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Skip if data is already fresh
         id: fresh
         if: github.event_name == 'schedule'
