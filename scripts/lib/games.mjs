@@ -13,9 +13,13 @@ export const LEAGUES = [
   { id: 'nhl', label: 'NHL', path: 'hockey/nhl' },
 ];
 const DAYS = 7;
+// Teams the place-name matcher can't place: "Cleveland" reads as a surname, "New England" isn't a
+// state, and the Athletics carry no city (Sacramento until their Las Vegas stadium opens).
+const TEAM_STATE = { 'Cleveland Browns': 's:OH', 'Cleveland Guardians': 's:OH', 'New England Patriots': 's:MA', Athletics: 's:CA' };
 
-// apRank(sport, displayName) → AP Top 25 rank or null; stateKey(abbr) → "s:XX" or null.
-export async function loadGames({ fetchJSON, today, apRank, stateKey, prevPath, log = console.log }) {
+// apRank(sport, displayName) → AP Top 25 rank or null; stateKey(abbr or name) → "s:XX" or null;
+// teamState(displayName) → the state a team belongs to ("Dallas Cowboys" → "s:TX") or null.
+export async function loadGames({ fetchJSON, today, apRank, stateKey, teamState, prevPath, log = console.log }) {
   const days = Array.from({ length: DAYS }, (_, i) => new Date(Date.parse(`${today}T12:00:00Z`) + i * 864e5).toISOString().slice(0, 10));
   let prev = [];
   try { prev = JSON.parse(await fs.readFile(prevPath, 'utf8')).games || []; } catch {}
@@ -36,6 +40,7 @@ export async function loadGames({ fetchJSON, today, apRank, stateKey, prevPath, 
       const slug = e.season?.slug || '';
       if (!c || seen.has(e.id) || e.season?.type === 1 || /pre-?season/.test(slug) || e.status?.type?.state !== 'pre') continue;
       seen.add(e.id);
+      const dn = (ha) => c.competitors?.find((t) => t.homeAway === ha)?.team?.displayName;
       const side = (ha) => {
         const x = c.competitors?.find((t) => t.homeAway === ha);
         const r = L.sport ? apRank(L.sport, x?.team?.displayName) : null;
@@ -45,6 +50,9 @@ export async function loadGames({ fetchJSON, today, apRank, stateKey, prevPath, 
       // College: only games with an AP Top 25 team, the same bar the rest of the site uses.
       if (L.sport && !a.r && !h.r) continue;
       const addr = c.venue?.address || {};
+      // States whose panels list this game: each team's home state, plus wherever it's played.
+      const stateOf = (name) => TEAM_STATE[name] || teamState(name);
+      const states = [...new Set([stateOf(dn('away')), stateOf(dn('home')), stateKey(addr.state)].filter(Boolean))];
       const tv = [...new Set((c.broadcasts || []).filter((b) => b.market === 'national').flatMap((b) => b.names || []))];
       games.push({
         l: L.id, id: e.id, ts: Date.parse(e.date), a, h,
@@ -54,6 +62,7 @@ export async function loadGames({ fetchJSON, today, apRank, stateKey, prevPath, 
         v: c.venue?.fullName || '',
         at: [addr.city, addr.state || (addr.country && addr.country !== 'USA' ? addr.country : '')].filter(Boolean).join(', '),
         ...(stateKey(addr.state) && { st: stateKey(addr.state) }),
+        ...(states.length && { s: states }),
         ...(c.notes?.[0]?.headline && { note: c.notes[0].headline }),
         ...(slug.includes('post') && !c.notes?.[0]?.headline && { note: 'Postseason' }),
         u: e.links?.find((x) => x.rel?.includes('summary'))?.href || e.links?.[0]?.href || '',

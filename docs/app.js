@@ -1,7 +1,7 @@
 import Globe from 'globe.gl';
 import * as THREE from 'three';
 import { feature } from 'topojson-client';
-import { createSpace } from './space.js?v=a3f5b014bd';
+import { createSpace } from './space.js?v=bae6a858e7';
 
 const CATS = {
   conflict: { label: 'Conflict', color: '#ff4d5e' },
@@ -545,7 +545,8 @@ async function renderPanel() {
   const k = S.sel, p = place(k);
   const mine = stories.filter((s) => s.p.includes(k)).sort(byRecency);
   const here = liveUpcoming().filter((e) => e.p.includes(k));
-  const games = k === 'c:USA' ? await loadGames() : null;
+  const games = k === 'c:USA' || p.t === 'state' ? await loadGames() : null;
+  const gamesHtml = games ? gamesSection(k) : '';
   if (token !== S.panelToken) return;
   const st = S.stats.get(k);
   const type = k === 'c:USA' ? 'National' : p.t === 'state' ? 'U.S. State' : 'Country';
@@ -566,8 +567,8 @@ async function renderPanel() {
       <div class="sub">${st ? `${st.count} ${st.count === 1 ? 'story' : 'stories'}` : 'Quiet'}</div>
     </div>
     ${here.length ? `<h3>Coming up here</h3>${upcomingRows(here)}` : ''}
-    ${games ? `<h3>Upcoming games</h3><div id="games">${gamesSection()}</div>` : ''}
-    ${k === 'c:USA' ? '<h3>National news</h3>' : here.length && mine.length ? '<h3>Stories</h3>' : ''}${storyList(mine)}${extra}`;
+    ${gamesHtml ? `<h3>Upcoming games</h3><div id="games">${gamesHtml}</div>` : ''}
+    ${k === 'c:USA' ? '<h3>National news</h3>' : (here.length || gamesHtml) && mine.length ? '<h3>Stories</h3>' : ''}${storyList(mine)}${extra}`;
   body.scrollTop = 0;
   applyFocus(body);
 }
@@ -611,9 +612,10 @@ async function shareStory(btn) {
   setTimeout(() => { btn.classList.remove('done'); btn.textContent = '🔗'; }, 1600);
 }
 
-// ---------- Upcoming games (U.S. national panel) ----------
-// NFL, MLB, NBA, NHL and AP Top 25 college games for the next week, one league at a time. The last
-// league picked is remembered in this browser.
+// ---------- Upcoming games (U.S. national and state panels) ----------
+// NFL, MLB, NBA, NHL and AP Top 25 college games for the next week, one league at a time. A state
+// panel lists games its teams play (home or away) and games played there. Clicking the open league
+// collapses the list. The choice, including "collapsed", is remembered in this browser.
 const LEAGUE_KEY = 'wp.league';
 let gamesPromise;
 function loadGames() {
@@ -625,15 +627,20 @@ function gameDayLabel(ts) {
   const d = localDay(ts), today = localDay(Date.now()), tomorrow = localDay(Date.now() + 864e5);
   return d === today ? 'Today' : d === tomorrow ? 'Tomorrow' : new Date(ts).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
 }
-function gamesSection() {
+function gamesSection(k) {
   const data = S.games;
   if (!data) return '';
   // Keep games that started in the last few hours: likely still on, and the file is refreshed only twice a day.
-  const live = data.games.filter((g) => g.ts > Date.now() - 3.5 * 3600e3);
+  const live = data.games.filter((g) => g.ts > Date.now() - 3.5 * 3600e3 && (k === 'c:USA' || g.s?.includes(k)));
   const count = (id) => live.filter((g) => g.l === id).length;
+  // States only show leagues they have games in; the national panel shows every league.
+  const leagues = k === 'c:USA' ? data.leagues : data.leagues.filter((L) => count(L.id));
+  if (!leagues.length) return '';
   let saved = null;
   try { saved = localStorage.getItem(LEAGUE_KEY); } catch {}
-  const pick = [S.league, saved].find((id) => id && count(id)) || data.leagues.find((L) => count(L.id))?.id || data.leagues[0].id;
+  const want = S.league ?? saved;
+  const collapsed = want === 'none';
+  const pick = collapsed ? null : [want].find((id) => id && count(id)) || leagues.find((L) => count(L.id))?.id || leagues[0].id;
   const label = data.leagues.find((L) => L.id === pick)?.label || '';
   const list = live.filter((g) => g.l === pick);
   const team = (t) => `${t.r ? `<i class="g-rank">${t.r}</i>` : ''}${esc(t.n)}`;
@@ -645,7 +652,7 @@ function gamesSection() {
       <span class="g-body">
         ${g.note ? `<span class="g-note">${esc(g.note)}</span>` : ''}
         <a href="${esc(g.u)}" target="_blank" rel="noopener">${team(g.a)} <span class="g-at">${g.neutral ? 'vs' : '@'}</span> ${team(g.h)}</a>
-        <small>${esc([g.v, g.at].filter(Boolean).join(' · '))}${g.st && place(g.st) ? ` <button class="g-place" data-place="${g.st}">${esc(place(g.st).n)} →</button>` : ''}</small>
+        <small>${esc([g.v, g.at].filter(Boolean).join(' · '))}${g.st && g.st !== k && place(g.st) ? ` <button class="g-place" data-place="${g.st}">${esc(place(g.st).n)} →</button>` : ''}</small>
       </span></div>`;
   };
   let html = '', cur = null;
@@ -657,15 +664,18 @@ function gamesSection() {
   });
   if (list.length > 10) html += '</details>';
   const tz = new Intl.DateTimeFormat('en-US', { timeZoneName: 'short' }).formatToParts(new Date()).find((p) => p.type === 'timeZoneName')?.value || '';
-  return `<div class="league-tabs" role="tablist" aria-label="League">${data.leagues.map((L) => `<button role="tab" aria-selected="${L.id === pick}" data-league="${L.id}" class="${L.id === pick ? 'on' : ''} ${count(L.id) ? '' : 'zero'}">${esc(L.label)}${count(L.id) ? `<b>${count(L.id)}</b>` : ''}</button>`).join('')}</div>
+  const tabs = `<div class="league-tabs" role="tablist" aria-label="League">${leagues.map((L) => `<button role="tab" aria-selected="${L.id === pick}" aria-expanded="${L.id === pick}" data-league="${L.id}" title="${L.id === pick ? 'Click again to collapse' : `Show ${esc(L.label)} games`}" class="${L.id === pick ? 'on' : ''} ${count(L.id) ? '' : 'zero'}">${esc(L.label)}${count(L.id) ? `<b>${count(L.id)}</b>` : ''}</button>`).join('')}</div>`;
+  if (collapsed) return `${tabs}<div class="games-note">${live.length} ${live.length === 1 ? 'game' : 'games'} in the next 7 days · pick a league to show them</div>`;
+  return `${tabs}
     <div class="games-note">Next 7 days · times in ${esc(tz || 'your time zone')}${/^(cfb|cbb)$/.test(pick) ? ' · games with an AP Top 25 team' : ''}</div>
     ${html || `<div class="empty">No ${esc(label)} regular-season or playoff games in the next 7 days.</div>`}`;
 }
-function pickLeague(id) {
-  S.league = id;
-  try { localStorage.setItem(LEAGUE_KEY, id); } catch {}
+// Clicking the open league collapses the list; clicking any other league opens it.
+function pickLeague(btn) {
+  S.league = btn.classList.contains('on') ? 'none' : btn.dataset.league;
+  try { localStorage.setItem(LEAGUE_KEY, S.league); } catch {}
   const el = $('#games');
-  if (el) el.innerHTML = gamesSection();
+  if (el) el.innerHTML = gamesSection(S.sel);
 }
 
 // ---------- Pinned places ----------
@@ -785,7 +795,7 @@ document.addEventListener('click', (e) => {
   if (!t) return;
   if (t.dataset.share) return shareStory(t);
   if (t.dataset.pin) return togglePin(t.dataset.pin);
-  if (t.dataset.league) return pickLeague(t.dataset.league);
+  if (t.dataset.league) return pickLeague(t);
   if (t.id === 'play') return togglePlay();
   if (t.id === 'keys-btn') return showKeys(true);
   if (t.id === 'settings-btn') return showSettings(true);

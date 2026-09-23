@@ -1,7 +1,7 @@
 // Space mode: live ISS orbit, launches, aurora forecast, APOD, asteroid flybys, the Sun, space news.
 import * as satellite from 'satellite.js';
 import { geoContains } from 'd3-geo';
-import { createDiscoveries } from './discoveries.js?v=a3f5b014bd';
+import { createDiscoveries } from './discoveries.js?v=bae6a858e7';
 
 const ISS_ALT = 0.066; // ~420 km in globe radii
 const STATUS = {

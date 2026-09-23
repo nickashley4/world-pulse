@@ -80,6 +80,7 @@ const apRanks = new Map(college.ranked.map((t) => [t.dn, t.ranks]));
 const gamesPromise = loadGames({
   fetchJSON, today: days.at(-1), log, prevPath: path.join(OUT, 'games.json'),
   apRank: (sport, dn) => apRanks.get(dn)?.[sport] || null, stateKey: (st) => stateKeys.get(st) || null,
+  teamState: (dn) => (dn && G.geo(dn).find((h) => h.key.startsWith('s:') && !h.weak)?.key) || null,
 });
 
 // ---------- 1. Collect ----------
