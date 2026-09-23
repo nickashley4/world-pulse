@@ -19,6 +19,9 @@ a { color: inherit; }
    rise above the side rail and panel. */
 #globe { position: absolute; inset: 0; }
 #globe .float-tooltip-kap { z-index: 30; }
+/* globe.gl's HTML markers (Coming up flags, the ISS) get depth-sorted z-indexes of 1…N. Contain
+   them in their own stacking context, or the higher ones draw over the rail and panel. */
+#globe .scene-container > div { z-index: 0; }
 
 .glass {
   background: var(--glass);
