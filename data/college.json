@@ -1,7 +1,7 @@
 {
  "polls": {
-  "basketball": "2026-04-07T07:00Z",
-  "football": "2026-10-11T07:00Z"
+  "football": "2026-10-18T07:00Z",
+  "basketball": "2026-04-07T07:00Z"
  },
  "states": {
   "BYU Cougars": "UT",
@@ -59,8 +59,8 @@
    "location": "Alabama",
    "name": "Crimson Tide",
    "ranks": {
-    "basketball": 16,
-    "football": 6
+    "football": 13,
+    "basketball": 16
    },
    "state": "AL"
   },
@@ -69,6 +69,7 @@
    "location": "Arizona",
    "name": "Wildcats",
    "ranks": {
+    "football": 25,
     "basketball": 3
    },
    "state": "AZ"
@@ -87,7 +88,7 @@
    "location": "BYU",
    "name": "Cougars",
    "ranks": {
-    "football": 8
+    "football": 2
    },
    "state": "UT"
   },
@@ -96,7 +97,7 @@
    "location": "Boise State",
    "name": "Broncos",
    "ranks": {
-    "football": 23
+    "football": 21
    },
    "state": "ID"
   },
@@ -114,6 +115,7 @@
    "location": "Florida",
    "name": "Gators",
    "ranks": {
+    "football": 20,
     "basketball": 9
    },
    "state": "FL"
@@ -123,26 +125,17 @@
    "location": "Georgia",
    "name": "Bulldogs",
    "ranks": {
-    "football": 1
+    "football": 5
    },
    "state": "GA"
-  },
-  {
-   "dn": "Gonzaga Bulldogs",
-   "location": "Gonzaga",
-   "name": "Bulldogs",
-   "ranks": {
-    "basketball": 18
-   },
-   "state": "WA"
   },
   {
    "dn": "Houston Cougars",
    "location": "Houston",
    "name": "Cougars",
    "ranks": {
-    "basketball": 7,
-    "football": 20
+    "football": 14,
+    "basketball": 7
    },
    "state": "TX"
   },
@@ -160,7 +153,7 @@
    "location": "Indiana",
    "name": "Hoosiers",
    "ranks": {
-    "football": 5
+    "football": 6
    },
    "state": "IN"
   },
@@ -169,8 +162,8 @@
    "location": "Iowa",
    "name": "Hawkeyes",
    "ranks": {
-    "basketball": 15,
-    "football": 17
+    "football": 15,
+    "basketball": 15
    },
    "state": "IA"
   },
@@ -197,7 +190,7 @@
    "location": "Kentucky",
    "name": "Wildcats",
    "ranks": {
-    "football": 15
+    "football": 12
    },
    "state": "KY"
   },
@@ -206,7 +199,7 @@
    "location": "LSU",
    "name": "Tigers",
    "ranks": {
-    "football": 22
+    "football": 18
    },
    "state": "LA"
   },
@@ -224,8 +217,8 @@
    "location": "Miami",
    "name": "Hurricanes",
    "ranks": {
-    "basketball": 24,
-    "football": 3
+    "football": 1,
+    "basketball": 24
    },
    "state": "FL"
   },
@@ -248,20 +241,11 @@
    "state": "MI"
   },
   {
-   "dn": "Mississippi State Bulldogs",
-   "location": "Mississippi State",
-   "name": "Bulldogs",
-   "ranks": {
-    "football": 16
-   },
-   "state": "MS"
-  },
-  {
    "dn": "Missouri Tigers",
    "location": "Missouri",
    "name": "Tigers",
    "ranks": {
-    "football": 13
+    "football": 22
    },
    "state": "MO"
   },
@@ -279,7 +263,7 @@
    "location": "Northwestern",
    "name": "Wildcats",
    "ranks": {
-    "football": 25
+    "football": 24
    },
    "state": "IL"
   },
@@ -288,7 +272,7 @@
    "location": "Notre Dame",
    "name": "Fighting Irish",
    "ranks": {
-    "football": 2
+    "football": 4
    },
    "state": "IN"
   },
@@ -297,25 +281,16 @@
    "location": "Ohio State",
    "name": "Buckeyes",
    "ranks": {
-    "football": 4
+    "football": 3
    },
    "state": "OH"
-  },
-  {
-   "dn": "Oklahoma State Cowboys",
-   "location": "Oklahoma State",
-   "name": "Cowboys",
-   "ranks": {
-    "football": 18
-   },
-   "state": "OK"
   },
   {
    "dn": "Ole Miss Rebels",
    "location": "Ole Miss",
    "name": "Rebels",
    "ranks": {
-    "football": 9
+    "football": 7
    },
    "state": "MS"
   },
@@ -333,26 +308,17 @@
    "location": "SMU",
    "name": "Mustangs",
    "ranks": {
-    "football": 24
+    "football": 23
    },
    "state": "TX"
-  },
-  {
-   "dn": "St. John's Red Storm",
-   "location": "St. John's",
-   "name": "Red Storm",
-   "ranks": {
-    "basketball": 10
-   },
-   "state": "NY"
   },
   {
    "dn": "Tennessee Volunteers",
    "location": "Tennessee",
    "name": "Volunteers",
    "ranks": {
-    "basketball": 12,
-    "football": 14
+    "football": 11,
+    "basketball": 12
    },
    "state": "TN"
   },
@@ -361,8 +327,8 @@
    "location": "Texas",
    "name": "Longhorns",
    "ranks": {
-    "basketball": 22,
-    "football": 7
+    "football": 19,
+    "basketball": 22
    },
    "state": "TX"
   },
@@ -371,8 +337,8 @@
    "location": "Texas Tech",
    "name": "Red Raiders",
    "ranks": {
-    "basketball": 21,
-    "football": 10
+    "football": 8,
+    "basketball": 21
    },
    "state": "TX"
   },
@@ -381,7 +347,7 @@
    "location": "UCLA",
    "name": "Bruins",
    "ranks": {
-    "football": 12
+    "football": 9
    },
    "state": "CA"
   },
@@ -399,7 +365,7 @@
    "location": "USC",
    "name": "Trojans",
    "ranks": {
-    "football": 19
+    "football": 16
    },
    "state": "CA"
   },
@@ -408,7 +374,7 @@
    "location": "Utah",
    "name": "Utes",
    "ranks": {
-    "football": 11
+    "football": 10
    },
    "state": "UT"
   },
@@ -435,7 +401,7 @@
    "location": "Wake Forest",
    "name": "Demon Deacons",
    "ranks": {
-    "football": 21
+    "football": 17
    },
    "state": "NC"
   },
@@ -447,6 +413,24 @@
     "basketball": 25
    },
    "state": "WI"
+  },
+  {
+   "dn": "Gonzaga Bulldogs",
+   "location": "Gonzaga",
+   "name": "Bulldogs",
+   "ranks": {
+    "basketball": 18
+   },
+   "state": "WA"
+  },
+  {
+   "dn": "St. John's Red Storm",
+   "location": "St. John's",
+   "name": "Red Storm",
+   "ranks": {
+    "basketball": 10
+   },
+   "state": "NY"
   }
  ]
 }
