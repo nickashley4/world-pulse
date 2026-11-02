@@ -1,7 +1,7 @@
 {
  "polls": {
   "basketball": "2026-10-19T07:00Z",
-  "football": "2026-10-25T07:00Z"
+  "football": "2026-11-01T07:00Z"
  },
  "states": {
   "BYU Cougars": "UT",
@@ -51,7 +51,9 @@
   "Boise State Broncos": "ID",
   "Pittsburgh Panthers": "PA",
   "Wake Forest Demon Deacons": "NC",
-  "Northwestern Wildcats": "IL"
+  "Northwestern Wildcats": "IL",
+  "New Mexico Lobos": "NM",
+  "South Carolina Gamecocks": "SC"
  },
  "ranked": [
   {
@@ -60,7 +62,7 @@
    "name": "Crimson Tide",
    "ranks": {
     "basketball": 20,
-    "football": 10
+    "football": 9
    },
    "state": "AL"
   },
@@ -70,7 +72,7 @@
    "name": "Wildcats",
    "ranks": {
     "basketball": 5,
-    "football": 22
+    "football": 24
    },
    "state": "AZ"
   },
@@ -89,7 +91,7 @@
    "name": "Cougars",
    "ranks": {
     "basketball": 25,
-    "football": 8
+    "football": 7
    },
    "state": "UT"
   },
@@ -117,7 +119,7 @@
    "name": "Gators",
    "ranks": {
     "basketball": 1,
-    "football": 17
+    "football": 25
    },
    "state": "FL"
   },
@@ -126,7 +128,7 @@
    "location": "Georgia",
    "name": "Bulldogs",
    "ranks": {
-    "football": 3
+    "football": 2
    },
    "state": "GA"
   },
@@ -145,7 +147,7 @@
    "name": "Cougars",
    "ranks": {
     "basketball": 10,
-    "football": 18
+    "football": 17
    },
    "state": "TX"
   },
@@ -163,9 +165,18 @@
    "location": "Indiana",
    "name": "Hoosiers",
    "ranks": {
-    "football": 4
+    "football": 6
    },
    "state": "IN"
+  },
+  {
+   "dn": "Iowa Hawkeyes",
+   "location": "Iowa",
+   "name": "Hawkeyes",
+   "ranks": {
+    "football": 21
+   },
+   "state": "IA"
   },
   {
    "dn": "Iowa State Cyclones",
@@ -191,7 +202,7 @@
    "name": "Wildcats",
    "ranks": {
     "basketball": 23,
-    "football": 9
+    "football": 8
    },
    "state": "KY"
   },
@@ -246,25 +257,25 @@
    "location": "Missouri",
    "name": "Tigers",
    "ranks": {
-    "football": 23
+    "football": 19
    },
    "state": "MO"
   },
   {
-   "dn": "Northwestern Wildcats",
-   "location": "Northwestern",
-   "name": "Wildcats",
+   "dn": "New Mexico Lobos",
+   "location": "New Mexico",
+   "name": "Lobos",
    "ranks": {
-    "football": 20
+    "football": 22
    },
-   "state": "IL"
+   "state": "NM"
   },
   {
    "dn": "Notre Dame Fighting Irish",
    "location": "Notre Dame",
    "name": "Fighting Irish",
    "ranks": {
-    "football": 5
+    "football": 4
    },
    "state": "IN"
   },
@@ -273,18 +284,9 @@
    "location": "Ohio State",
    "name": "Buckeyes",
    "ranks": {
-    "football": 2
+    "football": 11
    },
    "state": "OH"
-  },
-  {
-   "dn": "Oklahoma State Cowboys",
-   "location": "Oklahoma State",
-   "name": "Cowboys",
-   "ranks": {
-    "football": 24
-   },
-   "state": "OK"
   },
   {
    "dn": "Ole Miss Rebels",
@@ -296,13 +298,13 @@
    "state": "MS"
   },
   {
-   "dn": "SMU Mustangs",
-   "location": "SMU",
-   "name": "Mustangs",
+   "dn": "South Carolina Gamecocks",
+   "location": "South Carolina",
+   "name": "Gamecocks",
    "ranks": {
-    "football": 19
+    "football": 23
    },
-   "state": "TX"
+   "state": "SC"
   },
   {
    "dn": "St. John's Red Storm",
@@ -329,7 +331,7 @@
    "name": "Longhorns",
    "ranks": {
     "basketball": 7,
-    "football": 11
+    "football": 10
    },
    "state": "TX"
   },
@@ -349,7 +351,7 @@
    "name": "Bruins",
    "ranks": {
     "basketball": 22,
-    "football": 7
+    "football": 5
    },
    "state": "CA"
   },
@@ -367,7 +369,8 @@
    "location": "USC",
    "name": "Trojans",
    "ranks": {
-    "basketball": 21
+    "basketball": 21,
+    "football": 18
    },
    "state": "CA"
   },
@@ -376,7 +379,7 @@
    "location": "Utah",
    "name": "Utes",
    "ranks": {
-    "football": 6
+    "football": 3
    },
    "state": "UT"
   },
@@ -406,15 +409,6 @@
     "football": 14
    },
    "state": "NC"
-  },
-  {
-   "dn": "Wisconsin Badgers",
-   "location": "Wisconsin",
-   "name": "Badgers",
-   "ranks": {
-    "football": 25
-   },
-   "state": "WI"
   }
  ]
 }
