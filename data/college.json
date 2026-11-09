@@ -1,6 +1,6 @@
 {
  "polls": {
-  "basketball": "2026-10-19T07:00Z",
+  "basketball": "2026-11-09T08:00Z",
   "football": "2026-11-08T08:00Z"
  },
  "states": {
@@ -61,7 +61,7 @@
    "location": "Alabama",
    "name": "Crimson Tide",
    "ranks": {
-    "basketball": 20,
+    "basketball": 18,
     "football": 7
    },
    "state": "AL"
@@ -71,7 +71,7 @@
    "location": "Arizona",
    "name": "Wildcats",
    "ranks": {
-    "basketball": 5,
+    "basketball": 12,
     "football": 22
    },
    "state": "AZ"
@@ -81,7 +81,7 @@
    "location": "Arkansas",
    "name": "Razorbacks",
    "ranks": {
-    "basketball": 12
+    "basketball": 19
    },
    "state": "AR"
   },
@@ -90,7 +90,7 @@
    "location": "BYU",
    "name": "Cougars",
    "ranks": {
-    "basketball": 25,
+    "basketball": 23,
     "football": 12
    },
    "state": "UT"
@@ -136,7 +136,7 @@
    "location": "Gonzaga",
    "name": "Bulldogs",
    "ranks": {
-    "basketball": 15
+    "basketball": 14
    },
    "state": "WA"
   },
@@ -145,7 +145,7 @@
    "location": "Houston",
    "name": "Cougars",
    "ranks": {
-    "basketball": 10,
+    "basketball": 8,
     "football": 14
    },
    "state": "TX"
@@ -178,20 +178,11 @@
    "state": "IA"
   },
   {
-   "dn": "Iowa State Cyclones",
-   "location": "Iowa State",
-   "name": "Cyclones",
-   "ranks": {
-    "basketball": 18
-   },
-   "state": "IA"
-  },
-  {
    "dn": "Kansas Jayhawks",
    "location": "Kansas",
    "name": "Jayhawks",
    "ranks": {
-    "basketball": 17
+    "basketball": 15
    },
    "state": "KS"
   },
@@ -200,7 +191,7 @@
    "location": "Kentucky",
    "name": "Wildcats",
    "ranks": {
-    "basketball": 23,
+    "basketball": 24,
     "football": 13
    },
    "state": "KY"
@@ -219,7 +210,7 @@
    "location": "Louisville",
    "name": "Cardinals",
    "ranks": {
-    "basketball": 11
+    "basketball": 10
    },
    "state": "KY"
   },
@@ -228,7 +219,7 @@
    "location": "Miami",
    "name": "Hurricanes",
    "ranks": {
-    "basketball": 14,
+    "basketball": 17,
     "football": 5
    },
    "state": "FL"
@@ -238,7 +229,7 @@
    "location": "Michigan State",
    "name": "Spartans",
    "ranks": {
-    "basketball": 6
+    "basketball": 5
    },
    "state": "MI"
   },
@@ -247,9 +238,18 @@
    "location": "Michigan",
    "name": "Wolverines",
    "ranks": {
-    "basketball": 16
+    "basketball": 20
    },
    "state": "MI"
+  },
+  {
+   "dn": "Nebraska Cornhuskers",
+   "location": "Nebraska",
+   "name": "Cornhuskers",
+   "ranks": {
+    "basketball": 25
+   },
+   "state": "NE"
   },
   {
    "dn": "New Mexico Lobos",
@@ -328,7 +328,7 @@
    "location": "Tennessee",
    "name": "Volunteers",
    "ranks": {
-    "basketball": 8,
+    "basketball": 11,
     "football": 9
    },
    "state": "TN"
@@ -348,7 +348,7 @@
    "location": "Texas Tech",
    "name": "Red Raiders",
    "ranks": {
-    "basketball": 19,
+    "basketball": 16,
     "football": 10
    },
    "state": "TX"
@@ -358,7 +358,7 @@
    "location": "UCLA",
    "name": "Bruins",
    "ranks": {
-    "basketball": 22,
+    "basketball": 9,
     "football": 4
    },
    "state": "CA"
@@ -396,7 +396,7 @@
    "location": "Vanderbilt",
    "name": "Commodores",
    "ranks": {
-    "basketball": 24
+    "basketball": 22
    },
    "state": "TN"
   },
@@ -405,7 +405,7 @@
    "location": "Virginia",
    "name": "Cavaliers",
    "ranks": {
-    "basketball": 9
+    "basketball": 6
    },
    "state": "VA"
   },
